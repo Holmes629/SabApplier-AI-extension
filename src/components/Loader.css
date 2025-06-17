@@ -1,0 +1,93 @@
+.loader-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(20, 20, 20, 0.5);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(8px);
+  animation: fadeIn 0.3s ease-in-out;
+  border-radius: 20px;
+}
+
+.loader-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 2rem 2.5rem;
+  border-radius: 20px;
+  box-shadow: 0 0 20px rgba(118, 75, 162, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  animation: floatUp 0.5s ease-out;
+}
+
+.loader-spinner {
+  width: 64px;
+  height: 64px;
+  border: 6px solid rgba(255, 255, 255, 0.3);
+  border-top: 6px solid #7f5af0; /* Premium purple */
+  border-radius: 50%;
+  animation: loader-spin 1s linear infinite;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 0 16px rgba(127, 90, 240, 0.6);
+}
+
+.loader-message {
+  color: #ffffff;
+  font-size: 1.1rem;
+  font-weight: 500;
+  text-align: center;
+  text-shadow: 0 0 6px rgba(0, 0, 0, 0.4);
+  max-width: 85%;
+}
+.error-loader-message{
+  color: #ff6b6b; /* Error red */
+  font-size: 1.1rem;
+  font-weight: 500;
+  text-align: center;
+  text-shadow: 0 0 6px rgba(0, 0, 0, 0.4);
+  max-width: 85%;
+}
+
+/* Animations */
+@keyframes loader-spin {
+  0%   { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes floatUp {
+  0%   { transform: translateY(20px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+.loader-icon {
+  font-size: 3rem;
+  margin-bottom: 1.5rem;
+  transition: all 0.4s ease;
+  animation: popUp 0.5s ease-in-out;
+}
+
+.success-icon {
+  color: #4ade80; /* Tailwind's green-400 */
+  text-shadow: 0 0 12px rgba(74, 222, 128, 0.6);
+}
+
+.error-icon {
+  color: #f87171; /* Tailwind's red-400 */
+  text-shadow: 0 0 12px rgba(248, 113, 113, 0.6);
+}
+
+@keyframes popUp {
+  0%   { transform: scale(0.6); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
