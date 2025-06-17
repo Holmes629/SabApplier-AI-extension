@@ -11,7 +11,7 @@
 1. Make sure node is downloaded into your system
 2. Run `npm i` in the terminal open in project root directory
 3. Run `npm run build`
-4. Go to (chrome://extension)
+4. Go to `chrome://extension`
 5. Turn on Developer mode and click on `Load Unpacked`
 6. Navigate to the build folder and select the folder
 7. Now you can see extension got loaded into the chrome extensions list
