@@ -24,6 +24,7 @@ export const EmailLogin = async (email, onStatusUpdate) => {
             function: getPageHTML,
         });
 
+
         onStatusUpdate("✅ Collected form data from the current page.", "success");
 
         const htmlData = result[0].result;
@@ -51,6 +52,7 @@ export const EmailLogin = async (email, onStatusUpdate) => {
 
         const fillData = await response.json();
         let autofillData = JSON.parse(fillData["autofill_data"]);
+        console.log("Autofill Data:", autofillData);
 
         await chrome.scripting.executeScript({
             target: { tabId: tab.id },
@@ -59,27 +61,43 @@ export const EmailLogin = async (email, onStatusUpdate) => {
                     document.querySelectorAll("input, textarea, select, checkbox, radio, label, file")
                 );
                 let autofillIndex = 0;
+                let input;
 
-                for (const input of allInputs) {
-                    if (autofillIndex >= autofillData.length) break;
-
+                while (autofillIndex < autofillData.length) {
                     const data = autofillData[autofillIndex];
                     const selector = Object.keys(data).find((k) => k !== "type");
                     const value = data[selector];
                     const inputType = data["type"];
 
-                    if (!input.matches(selector)) continue;
-
                     try {
                         if (["input", "textarea", "select"].includes(inputType)) {
+                            input = document.querySelector(selector);
+                            if (!input) {autofillIndex++; continue;}
                             input.value = value;
                             input.dispatchEvent(new Event("input", { bubbles: true }));
-                        } else if (inputType === "checkbox" || inputType === "radio") {
-                            input.checked = value === "true";
+                            console.log("input filled: ", input);
+                        } else if (inputType === "checkbox") {
+                            input = document.querySelector(selector);
+                            if (!input) {autofillIndex++; continue;}
+                            if (["false", false, 'no', 'NO', 'No', ''].includes(value)){
+                                input.checked = false;
+                            } else {
+                                input.checked = true;
+                            }
                             input.dispatchEvent(new Event("change", { bubbles: true }));
+                            console.log("checkbox filled: ", input);
+                        } else if (inputType === "radio") {
+                            input = document.querySelector(selector);
+                            if (!input) {autofillIndex++; continue;}
+                            input.checked = value;
+                            input.dispatchEvent(new Event("change", { bubbles: true }));
+                            console.log("checkbox filled: ", input);
                         } else if (inputType === "label") {
+                            input = document.querySelector(selector);
+                            if (!input) {autofillIndex++; continue;}
                             input.click();
                             input.dispatchEvent(new Event("change", { bubbles: true }));
+                            console.log("label filled: ", input);
                         } else if (inputType === "file") {
                             try {
                                 const directDownloadUrl = value
@@ -94,8 +112,11 @@ export const EmailLogin = async (email, onStatusUpdate) => {
                                 const dataTransfer = new DataTransfer();
                                 dataTransfer.items.add(file);
 
+                                input = document.querySelector(selector);
+                                if (!input) {autofillIndex++; continue;}
                                 input.files = dataTransfer.files;
                                 input.dispatchEvent(new Event("change", { bubbles: true }));
+                                console.log("file filled: ", input);
                             } catch (err) {
                                 console.error(`❌ File upload failed for ${selector}:`, err);
                             }

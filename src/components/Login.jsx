@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import Loader from './Loader';
+import { Eye, EyeOff } from "lucide-react";
 import './Login.css';
 
 export default function Login({ onLogin }) {
@@ -72,7 +73,7 @@ export default function Login({ onLogin }) {
             aria-label={showPassword ? "Hide password" : "Show password"}
           >
             <span className={`eye-icon ${showPassword ? 'eye-open' : 'eye-closed'}`}>
-              {showPassword ? '◉' : '◎'}
+              {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
             </span>
           </button>
         </div>
