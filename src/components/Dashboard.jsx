@@ -3,24 +3,41 @@ import { useNavigate } from 'react-router-dom';
 import './Dashboard.css';
 import EmailLogin from '../services/API/EmailLogin';
 import Loader from './Loader'; // Import the Loader component
+import DataSourceSelector from './DataSourceSelector';
 
 export default function Dashboard({ user, onLogout }) {
   const navigate = useNavigate();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(false);
+  const [currentDataSource, setCurrentDataSource] = useState(null);
 
   const handleEdit = () => {
-    window.open('https://sabapplier.com/auto-fill-data', '_blank');
+    window.open('http://localhost:3000/auto-fill-data', '_blank');
+  };
+
+  const handleDataSourceChange = (dataSource) => {
+    setCurrentDataSource(dataSource);
+    if (dataSource?.source === 'shared') {
+      setStatus(`Now using ${dataSource.senderName}'s data for form filling`);
+    } else {
+      setStatus('Now using your own data for form filling');
+    }
+    // Clear status after 3 seconds
+    setTimeout(() => setStatus(''), 3000);
   };
 
   const handleFillDetails = async () => {
     setLoading(true);
-    setStatus('Fetching your details...');
+    
+    if (currentDataSource?.source === 'shared') {
+      setStatus(`Fetching ${currentDataSource.senderName}'s details for form filling...`);
+    } else {
+      setStatus('Fetching your details...');
+    }
 
     try {
       const response = await EmailLogin(user.email, (msg) => setStatus(msg));
-
     } catch (err) {
       setStatus('Failed to fill details. Try again.');
     }
@@ -29,7 +46,7 @@ export default function Dashboard({ user, onLogout }) {
   };
 
   const handleProfile = () => {
-    window.open('https://sabapplier.com/profile', '_blank');
+    window.open('http://localhost:3000/profile', '_blank');
     
   };
 
@@ -116,6 +133,12 @@ export default function Dashboard({ user, onLogout }) {
 
         {/* Main Content */}
         <div className="dashboard-content">
+          {/* Data Source Selector */}
+          <DataSourceSelector 
+            user={user}
+            onDataSourceChange={handleDataSourceChange}
+          />
+
           <div className="action-grid">
 
             <div className="action-card">

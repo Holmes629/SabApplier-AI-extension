@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Extension Login</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .form-group {
+            margin: 15px 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        input[type="email"], input[type="password"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background-color: #007cba;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #005a8b;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 4px;
+            white-space: pre-wrap;
+        }
+        .success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <h1>Debug Extension Login</h1>
+    <p>This page simulates the exact login request that the Chrome extension makes.</p>
+    
+    <form id="loginForm">
+        <div class="form-group">
+            <label for="email">Email:</label>
+            <input type="email" id="email" value="test@example.com" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="password">Password:</label>
+            <input type="password" id="password" value="password123" required>
+        </div>
+        
+        <button type="submit">Test Login</button>
+    </form>
+    
+    <div id="result"></div>
+
+    <script>
+        const API_BASE_URL = 'http://127.0.0.1:8000/api';
+        
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const resultDiv = document.getElementById('result');
+            
+            resultDiv.textContent = 'Sending request...';
+            resultDiv.className = '';
+            
+            try {
+                console.log("Sending login request to:", `${API_BASE_URL}/users/extension/login`);
+                console.log("Request payload:", { user_email: email, user_password: password });
+                
+                const response = await fetch(`${API_BASE_URL}/users/extension/login`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Accept": "application/json",
+                        "X-Requested-With": "XMLHttpRequest",
+                        "Origin": window.location.origin,
+                        "User-Agent": "SabApplier-Extension-Debug/2.02"
+                    },
+                    mode: 'cors',
+                    body: JSON.stringify({
+                        user_email: email,
+                        user_password: password
+                    }),
+                });
+                
+                console.log("Response status:", response.status);
+                console.log("Response ok:", response.ok);
+                console.log("Response headers:", [...response.headers.entries()]);
+                
+                const data = await response.json();
+                console.log("Response data:", data);
+                
+                if (response.ok) {
+                    resultDiv.textContent = `Success!\n\nStatus: ${response.status}\nResponse: ${JSON.stringify(data, null, 2)}`;
+                    resultDiv.className = 'success';
+                } else {
+                    resultDiv.textContent = `Error!\n\nStatus: ${response.status}\nResponse: ${JSON.stringify(data, null, 2)}`;
+                    resultDiv.className = 'error';
+                }
+                
+            } catch (error) {
+                console.error("Request failed:", error);
+                resultDiv.textContent = `Request failed!\n\nError: ${error.message}`;
+                resultDiv.className = 'error';
+            }
+        });
+    </script>
+</body>
+</html>

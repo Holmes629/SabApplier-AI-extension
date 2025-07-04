@@ -85,18 +85,33 @@ export default function App() {
     });
   };
 
-  const handleLogin = async (email, password) => {
+  const handleLogin = async (email, password, googleResult = null) => {
     setLoading(true);
     setStatus('Logging in...');
     try {
-      const result = await LoginFunction(email, password, (msg) => setStatus(msg));
+      let result;
+      
+      if (googleResult) {
+        // Handle Google login result
+        result = googleResult;
+        setStatus('Google login successful!');
+      } else {
+        // Handle regular email/password login
+        result = await LoginFunction(email, password, (msg) => setStatus(msg));
+      }
+      
       const userName = result?.user_name || result?.name || email.split('@')[0];
       const userEmail = result?.user_email || email;
 
       if (result) {
         try {
           await saveUserToStorage(userEmail, userName);
-          setCurrentUser({ email: userEmail, name: userName });
+          setCurrentUser({ 
+            email: userEmail, 
+            name: userName,
+            isGoogleUser: result.isGoogleUser || false,
+            needsProfileCompletion: result.needsProfileCompletion || false
+          });
           loadSavedUsers(); // Reload the users list
           navigate('/dashboard');
         } catch (storageError) {

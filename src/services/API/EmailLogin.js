@@ -1,12 +1,22 @@
 /* global chrome */
 
-// const API_BASE_URL = 'http://127.0.0.1:8000/api';
-const API_BASE_URL = 'https://api.sabapplier.com/api';
+const API_BASE_URL = 'http://127.0.0.1:8000/api';
+// const API_BASE_URL = 'https://api.sabapplier.com/api';
 
 export const EmailLogin = async (email, onStatusUpdate) => {
     const getPageHTML = () => {
         return document.documentElement.outerHTML;
     };
+
+    // Check for active data source at the beginning
+    let activeDataSource = null;
+    if (chrome?.storage?.local) {
+        activeDataSource = await new Promise((resolve) => {
+            chrome.storage.local.get(['sabapplier_active_data_source'], (result) => {
+                resolve(result.sabapplier_active_data_source || null);
+            });
+        });
+    }
 
     try {
         if (!email) {
@@ -24,12 +34,20 @@ export const EmailLogin = async (email, onStatusUpdate) => {
             function: getPageHTML,
         });
 
-
         onStatusUpdate("✅ Collected form data from the current page.", "success");
 
         const htmlData = result[0].result;
 
-        onStatusUpdate("⏳ Sending data to server for analysis...", "success");
+        // Determine which data to use for form filling
+        let dataSourceEmail = email;
+        let statusMessage = "⏳ Sending data to server for analysis...";
+        
+        if (activeDataSource?.source === 'shared') {
+            dataSourceEmail = activeDataSource.senderEmail;
+            statusMessage = `⏳ Using ${activeDataSource.senderName || activeDataSource.senderEmail}'s data for form filling...`;
+        }
+
+        onStatusUpdate(statusMessage, "success");
 
         const response = await fetch(`${API_BASE_URL}/users/extension/auto-fill/`, {
             method: "POST",
@@ -38,7 +56,7 @@ export const EmailLogin = async (email, onStatusUpdate) => {
             },
             body: JSON.stringify({
                 html_data: htmlData,
-                user_email: email,
+                user_email: dataSourceEmail, // Use the selected data source
             }),
         });
 
@@ -133,7 +151,13 @@ export const EmailLogin = async (email, onStatusUpdate) => {
             args: [autofillData],
         });
 
-        onStatusUpdate("✅ Step 4: Form filled successfully!", "success");
+        // Success message with data source info
+        let successMessage = "✅ Step 4: Form filled successfully!";
+        if (activeDataSource?.source === 'shared') {
+            successMessage = `✅ Step 4: Form filled successfully using ${activeDataSource.senderName || activeDataSource.senderEmail}'s data!`;
+        }
+        
+        onStatusUpdate(successMessage, "success");
         setTimeout(() => onStatusUpdate("", "clear"), 5000);
         return fillData;
     } catch (error) {
