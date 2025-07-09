@@ -1,253 +1,259 @@
 /* global chrome */
-
-// const API_BASE_URL = 'http://127.0.0.1:8000/api';
 const API_BASE_URL = 'https://api.sabapplier.com/api';
+// const API_BASE_URL = 'https://api.sabapplier.com/api';
+// const API_BASE_URL = 'https://sabapplier.pythonanywhere.com/api';
 
-
-
-export const EmailLogin = async (email, onStatusUpdate) => {
-    const getPageHTML = () => {
-        return document.documentElement.outerHTML;
-    };
-
-    // Check for active data source at the beginning
-    let activeDataSource = null;
-    if (chrome?.storage?.local) {
-        activeDataSource = await new Promise((resolve) => {
-            chrome.storage.local.get(['sabapplier_active_data_source'], (result) => {
-                resolve(result.sabapplier_active_data_source || null);
-            });
-        });
-    }
-
+export const EmailLogin = async (params, onStatusUpdate) => {
     try {
-        if (!email) {
+        // Handle different parameter formats
+        // If params is a string, it's the user email (backward compatibility)
+        // If params is an object, it contains user email and possibly shared account details
+        
+        let userEmail, sharedAccountEmail, shareId;
+        
+        if (typeof params === 'string') {
+            userEmail = params;
+        } else if (typeof params === 'object') {
+            userEmail = params.userEmail;
+            sharedAccountEmail = params.sharedAccountEmail;
+            shareId = params.shareId;
+        } else {
+            throw new Error("Invalid parameters. Please log in again.");
+        }
+        
+        if (!userEmail) {
             onStatusUpdate("⚠️ Please log in to your account to continue.", "error");
             throw new Error("Email is missing. Please log in first.");
         }
-
-        const [tab] = await chrome.tabs.query({
-            active: true,
-            currentWindow: true,
-        });
-
-        const result = await chrome.scripting.executeScript({
-            target: { tabId: tab.id },
-            function: getPageHTML,
-        });
-
-        onStatusUpdate("✅ Collected form data from the current page.", "success");
-
-        const htmlData = result[0].result;
-
-        // Determine which data to use for form filling
-        let dataSourceEmail = email;
-        let statusMessage = "⏳ Sending data to server for analysis...";
         
-        if (activeDataSource?.source === 'shared') {
-            dataSourceEmail = activeDataSource.senderEmail;
-            statusMessage = `⏳ Using ${activeDataSource.senderName || activeDataSource.senderEmail}'s data for form filling...`;
-        }
-
-        onStatusUpdate(statusMessage, "success");
-
-        const response = await fetch(`${API_BASE_URL}/users/extension/auto-fill/`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                html_data: htmlData,
-                user_email: dataSourceEmail, // Use the selected data source
-            }),
+        // Log autofill parameters for debugging
+        console.log('EmailLogin running with:', {
+            userEmail,
+            usingSharedAccount: !!sharedAccountEmail,
+            sharedAccountEmail: sharedAccountEmail || 'N/A',
+            shareId: shareId || 'N/A'
         });
 
-
-        onStatusUpdate("✅ Response received from the server.", "success");
-
-        if (response.status !== 200) {
-            onStatusUpdate("❌ Unable to find user data. Please check your email or try again later.", "failed");
-            setTimeout(() => onStatusUpdate("", "clear"), 5000);
-            throw new Error("Server did not return a valid response. User may not exist.");
+        // Check if chrome API is available
+        if (!chrome?.tabs?.query || !chrome?.scripting?.executeScript) {
+            onStatusUpdate("⚠️ Chrome API not available. This could be a temporary issue.", "error");
+            return { error: "Chrome API not available" };
         }
 
-        const fillData = await response.json();
-        // const fillData = {"autofill_data": "[{\"input[name='txtName']\": \"testrandom\", \"type\": \"input\"}, {\"input[name='txtDOB']\": \"2025-04-08\", \"type\": \"input\"}, {\"input[name='rbtnGender'][value='F']\": \"checked\", \"type\": \"radio\"}, {\"select[name='ddlDistrict']\": \"select\", \"value\": \"None\"}, {\"select[name='ddlMandal']\": \"select\", \"value\": \"None\"}, {\"input[name='txtVillage']\": \"my correspondence address you don't need it\", \"type\": \"input\"}, {\"select[name='ddlCommunity']\": \"select\", \"value\": \"select\"}, {\"input[name='txtFatherName']\": \"test random father\", \"type\": \"input\"}, {\"input[name='txtMotherName']\": \"test random mother\", \"type\": \"input\"}, {\"select[name='ddlMotherTongue']\": \"select\", \"value\": \"select\"}, {\"input[name='txtMarks1']\": \"\", \"type\": \"input\"}, {\"input[name='txtMarks2']\": \"\", \"type\": \"input\"}, {\"input[name='txtEmailId']\": \"demoemail@gmail.com\", \"type\": \"input\"}, {\"input[name='txtMobileNo']\": \"9472828828\", \"type\": \"input\"}, {\"input[name='rbtnDisabled'][value='Y']\": \"checked\", \"type\": \"radio\"}, {\"input[name='rbtnExServicePerson'][value='N']\": \"checked\", \"type\": \"radio\"}, {\"input[name='rbtnEmployee'][value='N']\": \"checked\", \"type\": \"radio\"}, {\"input[name='rbtnNCC'][value='N']\": \"checked\", \"type\": \"radio\"}, {\"input[name='rbtnEmployeed'][value='N']\": \"checked\", \"type\": \"radio\"}, {\"select[name='ddlEmploymentNature']\": \"select\", \"value\": \"select\"}, {\"input[name='rbtnAreYouExEmployeeGovt'][value='N']\": \"checked\", \"type\": \"radio\"}, {\"input[name='txtFlatNo']\": \"my correspondence address you don't need it\", \"type\": \"input\"}, {\"input[name='txtArea']\": \"my correspondence address you don't need it\", \"type\": \"input\"}, {\"input[name='txtDistrict']\": \"my correspondence address you don't need it\", \"type\": \"input\"}, {\"input[name='txtState']\": \"no state\", \"type\": \"input\"}, {\"input[name='txtPincode']\": \"pincode\", \"type\": \"input\"}, {\"input[name='txtFlatNo1']\": \"my correspondence address you don't need it\", \"type\": \"input\"}, {\"input[name='txtArea1']\": \"my correspondence address you don't need it\", \"type\": \"input\"}, {\"input[name='txtDistrict1']\": \"my correspondence address you don't need it\", \"type\": \"input\"}, {\"input[name='txtState1']\": \"no state\", \"type\": \"input\"}, {\"input[name='txtPincode1']\": \"pincode\", \"type\": \"input\"}, {\"checkbox[name='chkAddress']\": \"checked\", \"type\": \"checkbox\"}, {\"select[name='ddlStudy']\": \"select\", \"value\": \"O\"}, {\"select[name='ddlFourthDistrict']\": \"select\", \"value\": \"select\"}, {\"select[name='ddl4thYearOfPassing']\": \"select\", \"value\": \"select\"}, {\"input[name='txtFourthSchoolName']\": \"4th Class School Name\", \"type\": \"input\"}, {\"select[name='ddlFifthDistrict']\": \"select\", \"value\": \"select\"}, {\"select[name='ddl5thYearOfPassing']\": \"select\", \"value\": \"select\"}, {\"input[name='txtFifthSchoolName']\": \"5th Class School Name\", \"type\": \"input\"}, {\"select[name='ddlSixthDistrict']\": \"select\", \"value\": \"select\"}, {\"select[name='ddlsixthYearOfPassing']\": \"select\", \"value\": \"select\"}, {\"input[name='txtSixthSchoolName']\": \"6th Class School Name\", \"type\": \"input\"}, {\"select[name='ddlSeventhDistrict']\": \"select\", \"value\": \"select\"}, {\"select[name='ddlSeventhYearOfPassing']\": \"select\", \"value\": \"select\"}, {\"input[name='txtSeventhSchoolName']\": \"7th Class School Name\", \"type\": \"input\"}, {\"select[name='ddlEigthDistrict']\": \"select\", \"value\": \"select\"}, {\"select[name='ddlEighthYearOfPassing']\": \"select\", \"value\": \"select\"}, {\"input[name='txtEigthSchoolName']\": \"8th Class School Name\", \"type\": \"input\"}, {\"select[name='ddlNinthDistrict']\": \"select\", \"value\": \"select\"}, {\"select[name='ddlNinethYearOfPassing']\": \"select\", \"value\": \"select\"}, {\"input[name='txtNinthSchoolName']\": \"9th Class School Name\", \"type\": \"input\"}, {\"select[name='ddlTenthDistrict']\": \"select\", \"value\": \"select\"}, {\"input[name='txtBoard']\": \"X class Board\", \"type\": \"input\"}, {\"input[name='txtTenthSchoolName']\": \"X class School Name/Private Study\", \"type\": \"input\"}, {\"input[name='txtHallTicketNo']\": \"Hall Ticket Number\", \"type\": \"input\"}, {\"select[name='ddlMonth']\": \"select\", \"value\": \"select\"}, {\"select[name='ddlYear']\": \"select\", \"value\": \"select\"}, {\"input[name='txtTenthMarks']\": \"percentage\", \"type\": \"input\"}, {\"select[name='ddl12thDistrict']\": \"select\", \"value\": \"select\"}, {\"input[name='txt12thBoard']\": \"12th class Board\", \"type\": \"input\"}, {\"select[name='ddl12thGroup']\": \"select\", \"value\": \"select\"}, {\"input[name='txt12thHallTicketNo']\": \"Hall Ticket Number\", \"type\": \"input\"}, {\"input[name='txt12thCollegeName']\": \"12th class College Name\", \"type\": \"input\"}, {\"input[name='txt12thMarks']\": \"percentage\", \"type\": \"input\"}, {\"select[name='ddl12thMonth']\": \"select\", \"value\": \"select\"}, {\"select[name='ddl12thYear']\": \"select\", \"value\": \"select\"}, {\"select[name='ddlDiplomaDistrict']\": \"select\", \"value\": \"select\"}, {\"input[name='txtDiplomaBoard']\": \"Diploma Board\", \"type\": \"input\"}, {\"select[name='ddlDiplomaBranch']\": \"select\", \"value\": \"select\"}, {\"select[name='ddlDiplomaMonth']\": \"select\", \"value\": \"select\"}, {\"select[name='ddlDiplomaYear']\": \"select\", \"value\": \"select\"}, {\"input[name='txtDiplomaHallTicketNo']\": \"Diploma Hall Ticket Number\", \"type\": \"input\"}, {\"input[name='txtDiplomaCollegeName']\": \"Diploma College Name\", \"type\": \"input\"}, {\"input[name='txtDiplomaMarks']\": \"percentage\", \"type\": \"input\"}, {\"select[name='ddlGraduationDistrict']\": \"select\", \"value\": \"select\"}, {\"select[name='ddlUniversity']\": \"select\", \"value\": \"select\"}, {\"select[name='ddlGraduationGroup']\": \"select\", \"value\": \"select\"}, {\"select[name='ddlGraduationMonth']\": \"select\", \"value\": \"select\"}, {\"select[name='ddlGraduationYear']\": \"select\", \"value\": \"select\"}, {\"input[name='txtGraduationHallTicketNo']\": \"Hall Ticket Number\", \"type\": \"input\"}, {\"input[name='txtGraduationCollegeName']\": \"College Name\", \"type\": \"input\"}, {\"input[name='txtGraduationMarks']\": \"percentage\", \"type\": \"input\"}, {\"select[name='ddlPGDistrict']\": \"select\", \"value\": \"select\"}, {\"select[name='ddlPGUniversity']\": \"select\", \"value\": \"select\"}, {\"select[name='ddlPGGroup']\": \"select\", \"value\": \"select\"}, {\"select[name='ddlPGMonth']\": \"select\", \"value\": \"select\"}, {\"select[name='ddlPGYear']\": \"select\", \"value\": \"select\"}, {\"input[name='txtPGHallticketNo']\": \"Hall Ticket Number\", \"type\": \"input\"}, {\"input[name='txtPGCollegeName']\": \"College Name\", \"type\": \"input\"}, {\"input[name='txtPGSpecialisation']\": \"Post Graduation Specialisation\", \"type\": \"input\"}, {\"input[name='txtPGMarks']\": \"percentage\", \"type\": \"input\"}, {\"select[name='ddlMPhilDistrict']\": \"select\", \"value\": \"select\"}, {\"input[name='txtMphilCollegeName']\": \"M.Phil College Name\", \"type\": \"input\"}, {\"select[name='ddlMPhilUniversity']\": \"select\", \"value\": \"select\"}, {\"select[name='ddlMPhilMonth']\": \"select\", \"value\": \"select\"}, {\"select[name='ddlMPhilYear']\": \"select\", \"value\": \"select\"}, {\"input[name='txtMPhilSpecialisation']\": \"M.Phil Specialisation\", \"type\": \"input\"}, {\"select[name='ddlPHDUniversity']\": \"select\", \"value\": \"select\"}, {\"input[name='txtPHDSubject']\": \"Ph.D Subject\", \"type\": \"input\"}, {\"input[name='txtPHDTopic']\": \"Ph.D Topic\", \"type\": \"input\"}, {\"select[name='ddlPHDMonth']\": \"select\", \"value\": \"select\"}, {\"select[name='ddlPHDYear']\": \"select\", \"value\": \"select\"}, {\"checkbox[name='chkAnyJob']\": \"checked\", \"type\": \"checkbox\"}, {\"checkbox[name='chkAgree']\": \"checked\", \"type\": \"checkbox\"}, {\"file[name='flUploadPhoto_ctl02']\": \"https://www.dropbox.com/scl/fi/wpnr76bru4fqd747ek04g/demoemail_passport_size_photo.jpg?rlkey=sf6ix69w1tbnjnxov9e9wqaxl&dl=0\", \"type\": \"file\"}, {\"file[name='flUploadSignature_ctl02']\": \"NA\", \"type\": \"file\"}]"};
+        // Safe query for active tab
+        let tab;
+        try {
+            const tabs = await chrome.tabs.query({
+                active: true,
+                currentWindow: true,
+            });
+            
+            if (!tabs || tabs.length === 0) {
+                onStatusUpdate("⚠️ No active tab found. Please refresh and try again.", "error");
+                return { error: "No active tab found" };
+            }
+            
+            tab = tabs[0];
+        } catch (error) {
+            console.error("Error querying tabs:", error);
+            onStatusUpdate("⚠️ Error accessing tab. Please refresh and try again.", "error");
+            return { error: "Tab query failed" };
+        }
 
-        let autofillData = JSON.parse(fillData["autofill_data"]);
-        console.log("Autofill Data:", autofillData);
+        // Get HTML content from the active tab
+        onStatusUpdate("📄 Reading form data from page...", "info");
+        
+        let htmlContent;
+        try {
+            const results = await chrome.scripting.executeScript({
+                target: { tabId: tab.id },
+                function: () => document.documentElement.outerHTML,
+            });
+            
+            if (!results || results.length === 0 || !results[0].result) {
+                throw new Error("Failed to read page content");
+            }
+            
+            htmlContent = results[0].result;
+        } catch (error) {
+            console.error("Error reading page content:", error);
+            onStatusUpdate("⚠️ Could not read page content. Please try again.", "error");
+            return { error: "Failed to read page content" };
+        }
 
-        await chrome.scripting.executeScript({
-            target: { tabId: tab.id },
-            func: async (autofillData) => {
-                // cloudinary function for documents compression or expansion, and resizing.
-                const uploadFileToCloudinary = async (dropboxUrl, filename, file_type, targetSize, pixels) => {
-                    const cloudinaryUrl = "https://api.cloudinary.com/v1_1/detvvagxg/auto/upload";
-                    const uploadPreset = "unsigned_preset_for_extension"; // Replace with your actual preset
-
-                    const response = await fetch(dropboxUrl);
-                    const blob = await response.blob();
-
-                    const formData = new FormData();
-                    formData.append("file", blob);
-                    formData.append("upload_preset", uploadPreset);
-
-                    const cloudRes = await fetch(cloudinaryUrl, {
-                        method: "POST",
-                        body: formData,
-                    });
-
-                    if (!cloudRes.ok) throw new Error("Cloudinary upload failed");
-
-                    const data = await cloudRes.json();
-
-                    // Build transformed URL
-                    try {
-                        const allowedTypes = ['jpg', 'jpeg', 'png', 'pdf'];
-                        file_type = file_type.split(',')[0].trim().toLowerCase().replace('.', '');
-                        if (!allowedTypes.includes(file_type)) {
-                            file_type = 'jpg'; // default will be jpg
-                        }
-                    } catch (err) {
-                        console.log('error with file_type: ', err);
-                        file_type = 'jpg';
-                    }
-                    let pixels_w = 600; let pixels_h = 800;
-                    try {
-                        [pixels_w, pixels_h] = pixels.toLowerCase().replace(/[^0-9x]/g, '').split('x').map(Number);
-                    } catch (err) {
-                        console.log('error occured with pixels: ', err);
-                        pixels_w = 600; pixels_h = 800;
-                    }
-                    console.log('filename, file_type, size, pixels:', filename, file_type, pixels_w, pixels_h);
-                    
-                    const publicId = data.public_id;
-                    for (let quality = 100; quality >= 20; quality -= 5) {
-                        const transformedUrl = `https://res.cloudinary.com/detvvagxg/image/upload/f_${file_type},w_${pixels_w},h_${pixels_h},q_${quality},c_fill,g_auto/${publicId}`;
+        // Prepare API request
+        onStatusUpdate(sharedAccountEmail ? 
+            `🔄 Processing autofill with ${sharedAccountEmail.split('@')[0]}'s data...` : 
+            "🔄 Processing autofill with your data...", "info");
+        
+        const apiUrl = `${API_BASE_URL}/users/extension/auto-fill/`;
+        const requestBody = {
+            html_data: htmlContent,
+            user_email: userEmail,
+            // Include shared account parameters if available
+            ...(sharedAccountEmail && { shared_account_email: sharedAccountEmail }),
+            ...(shareId && { share_id: shareId })
+        };
+        
+        console.log('Making API request to:', apiUrl);
+        console.log('Request body:', { ...requestBody, html_data: '[HTML_CONTENT]' }); // Don't log full HTML
+        
+        const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestBody)
+        });
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('API Error:', response.status, errorText);
+            throw new Error(`API request failed: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('API Response:', data);
+        
+        if (data.error) {
+            throw new Error(data.error);
+        }
+        
+        // Parse autofill_data if it's a JSON string
+        let autofillData = data.autofill_data;
+        if (typeof autofillData === 'string') {
+            try {
+                autofillData = JSON.parse(autofillData);
+            } catch (parseError) {
+                console.error('Failed to parse autofill data:', parseError);
+                throw new Error('Invalid autofill data format received from server');
+            }
+        }
+        
+        console.log('Parsed autofill data:', autofillData);
+        
+        // Apply autofill data to the page
+        if (autofillData && Array.isArray(autofillData) && autofillData.length > 0) {
+            onStatusUpdate("✅ Applying form data to page...", "info");
+            
+            try {
+                const fillResult = await chrome.scripting.executeScript({
+                    target: { tabId: tab.id },
+                    function: (autofillDataArray) => {
+                        // Apply autofill data to form fields
+                        let filledCount = 0;
+                        let filledFields = [];
+                        let notFilledFields = [];
                         
-                        const uploadedBlob = await fetch(transformedUrl).then(res => res.blob());
-                        const file_name = `${ filename || data.original_filename }.${file_type}`;
-                        const sizeKB = uploadedBlob.size / 1024;
-
-                        console.log(`Quality ${quality}: ${sizeKB.toFixed(2)} KB`);
-
-                        if (sizeKB <= targetSize + 5 || sizeKB >= targetSize - 5) {
-                            console.log('filename: ', file_name, uploadedBlob.size/ 1024);
-                            return new File([uploadedBlob], file_name, { type: uploadedBlob.type });
-                        }
-                    }
-                    // console.log('transformedUrl: ', transformedUrl)
-                    // // Fetch transformed file
-                    // const uploadedBlob = await fetch(transformedUrl).then(res => res.blob());
-                    // const file_name = `${ filename || data.original_filename }.${file_type}`;
-                    
-                    // console.log('filename: ', file_name, uploadedBlob.size/ 1024);
-                    // // Return transformed file object
-                    // return new File([uploadedBlob], file_name, { type: uploadedBlob.type });
-
-                };
-                // ------------------------------- x ---------------------------------
-
-                const allInputs = Array.from(
-                    document.querySelectorAll("input, textarea, select, checkbox, radio, label, file")
-                );
-                let autofillIndex = 0;
-                let input;
-
-                while (autofillIndex < autofillData.length) {
-                    const data = autofillData[autofillIndex];
-                    const selector = Object.keys(data).find((k) => k !== "type" && k !== "file_name" && k !== "file_type" && k !== "pixels" && k !== "size");
-                    const value = data[selector];
-                    const inputType = data["type"] || selector.split('[')[0];
-
-                    try {
-                        if (["input", "textarea", "select"].includes(inputType)) {
-                            input = document.querySelector(selector);
-                            if (!input) { autofillIndex++; continue; }
-                            input.value = String(value);
-                            input.dispatchEvent(new Event("input", { bubbles: true }));
-                            console.log("input filled: ", input, value);
-                        } else if (inputType === "checkbox") {
-                            input = document.querySelector(selector);
-                            if (!input) { autofillIndex++; continue; }
-                            if (["false", false, 'no', 'NO', 'No', ''].includes(value)) {
-                                input.checked = false;
-                            } else {
-                                input.checked = true;
-                            }
-                            input.dispatchEvent(new Event("change", { bubbles: true }));
-                            console.log("checkbox filled: ", input, value);
-                        } else if (inputType === "radio") {
-                            input = document.querySelector(selector);
-                            if (!input) { autofillIndex++; continue; }
-                            input.checked = value;
-                            input.dispatchEvent(new Event("change", { bubbles: true }));
-                            console.log("radio filled: ", input, value);
-                        } else if (inputType === "label") {
-                            input = document.querySelector(selector);
-                            if (!input) { autofillIndex++; continue; }
-                            input.click();
-                            input.dispatchEvent(new Event("change", { bubbles: true }));
-                            console.log("label filled: ", input, value);
-                        } else if (inputType === "file") {
-                            try {
-                                const dropbox_url = value
-                                    .replace("www.dropbox.com", "dl.dropboxusercontent.com")
-                                    .replace("?dl=0", "");
-
-                                // Get quality for compression
-                                let quality = 100;
-                                let actualSize = 'error';
-                                let targetSize = 'error';
-                                try {
-                                    const response = await fetch(dropbox_url, { method: "HEAD" });
-                                    const sizeBytes = parseInt(response.headers.get("Content-Length"), 10);
-                                    actualSize =  sizeBytes / 1024; // convert to KB
-                                    targetSize = parseFloat(data["size"]); // expected in KB
-                                    quality = Math.min(100, Math.floor((targetSize / actualSize) * 100));
-                                } catch (err) {
-                                    console.log('error while calculating compression: ', err);
-                                    quality = 100;
+                        // Process each autofill data item
+                        autofillDataArray.forEach(item => {
+                            // Skip items that don't have valid data
+                            if (!item || typeof item !== 'object') return;
+                            
+                            // Extract the field selector and value from each item
+                            for (const [selector, value] of Object.entries(item)) {
+                                if (selector === 'type' || !value || value === null || value === 'null') {
+                                    continue;
                                 }
                                 
-                                console.log("while filling image: ", dropbox_url, data['file_name'], data["file_type"] || data['file_name'].split('.')[1], actualSize, targetSize, quality, data["pixels"])
-                                const filename = data['file_name']?.split('.')[0] || value.split("/").pop().split("?")[0];
-                                const file = await uploadFileToCloudinary(dropbox_url, filename, data["file_type"], targetSize, data["pixels"]);
-                                const dataTransfer = new DataTransfer();
-                                dataTransfer.items.add(file);
-
-                                input = document.querySelector(selector);
-                                if (!input) { autofillIndex++; continue; }
-                                input.files = dataTransfer.files;
-                                input.dispatchEvent(new Event("change", { bubbles: true }));
-                                console.log("file filled: ", input, filename);
-                            } catch (err) {
-                                console.error(`❌ File upload failed for ${selector}:`, err);
+                                try {
+                                    const elements = document.querySelectorAll(selector);
+                                    let fieldFilled = false;
+                                    
+                                    elements.forEach(element => {
+                                        if (element && value) {
+                                            const elementType = element.type?.toLowerCase() || element.tagName?.toLowerCase();
+                                            
+                                            if (elementType === 'checkbox' || elementType === 'radio') {
+                                                element.checked = value === 'checked' || value === 'true' || value === true;
+                                                fieldFilled = true;
+                                            } else if (elementType === 'select-one' || elementType === 'select') {
+                                                // For select elements, try to set the value
+                                                element.value = value;
+                                                fieldFilled = true;
+                                            } else if (elementType === 'file') {
+                                                // For file inputs, we can't actually set the file, but we can log it
+                                                console.log(`File input ${selector} would be filled with: ${value}`);
+                                                fieldFilled = true;
+                                            } else {
+                                                // For regular input, textarea, etc.
+                                                element.value = value;
+                                                fieldFilled = true;
+                                            }
+                                            
+                                            if (fieldFilled) {
+                                                // Trigger change events
+                                                element.dispatchEvent(new Event('change', { bubbles: true }));
+                                                element.dispatchEvent(new Event('input', { bubbles: true }));
+                                                filledCount++;
+                                            }
+                                        }
+                                    });
+                                    
+                                    if (fieldFilled) {
+                                        filledFields.push(selector);
+                                    } else {
+                                        notFilledFields.push(selector);
+                                    }
+                                } catch (selectorError) {
+                                    console.warn(`Failed to process selector ${selector}:`, selectorError);
+                                    notFilledFields.push(selector);
+                                }
                             }
-                        } else {
-                            console.warn(`⚠️ Unknown input type "${inputType}" for ${selector}`);
-                        }
-                    } catch (err) {
-                        console.error(`❌ Error filling input ${selector}:`, err);
-                    }
-
-                    autofillIndex++;
+                        });
+                        
+                        return {
+                            filledCount,
+                            filledFields,
+                            notFilledFields
+                        };
+                    },
+                    args: [autofillData]
+                });
+                
+                const fillResults = fillResult[0].result;
+                console.log('Fill results:', fillResults);
+                
+                if (fillResults.filledCount > 0) {
+                    onStatusUpdate(`✅ Form filled successfully! ${fillResults.filledCount} fields filled.`, "success");
+                } else {
+                    onStatusUpdate("ℹ️ No matching form fields found on this page.", "info");
                 }
-            },
-            args: [autofillData],
-        });
-
-        // Success message with data source info
-        let successMessage = "✅ Step 4: Form filled successfully!";
-        if (activeDataSource?.source === 'shared') {
-            successMessage = `✅ Step 4: Form filled successfully using ${activeDataSource.senderName || activeDataSource.senderEmail}'s data!`;
+                
+                return {
+                    success: true,
+                    message: `Form filled successfully. ${fillResults.filledCount} fields filled.`,
+                    dataSource: data.data_source || 'unknown',
+                    sourceEmail: data.source_email || userEmail,
+                    fillResults: {
+                        filled: fillResults.filledFields,
+                        notFilled: fillResults.notFilledFields,
+                        filledCount: fillResults.filledCount
+                    }
+                };
+                
+            } catch (error) {
+                console.error("Error applying autofill data:", error);
+                onStatusUpdate("⚠️ Form data retrieved but failed to apply. Please try again.", "error");
+                return { error: "Failed to apply autofill data" };
+            }
+        } else {
+            onStatusUpdate("ℹ️ No matching form fields found on this page.", "info");
+            return {
+                success: true,
+                message: "No matching form fields found",
+                fillResults: {
+                    filled: [],
+                    notFilled: [],
+                    filledCount: 0
+                }
+            };
         }
         
-        onStatusUpdate(successMessage, "success");
-        setTimeout(() => onStatusUpdate("", "clear"), 5000);
-        return fillData;
     } catch (error) {
+        console.error("EmailLogin error:", error);
         onStatusUpdate(`❌ Something went wrong: ${error.message}`, "error");
+        return { error: error.message };
     }
 };
 

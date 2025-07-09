@@ -1,17 +1,23 @@
 {
   "manifest_version": 3,
   "name": "Sabapplier AI - Smart Form Filler & Document Manager",
-  "version": "2.02",
+  "version": "1.0",
   "description": "AI-powered extension to fill complex forms, manage documents, and auto-edit photos for exam and official applications",
-
-  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA7Q3rPRswX+Cxu6g/AQ4eyYy3Ru4GDP0h9DRmN1S5bYosOb5pNeIDOpYSBhwdgPETTqM6/4+BtFoNaqxxdNH2qhUs/+nmzXp8W6K+rNNI20utYqn6airnFt4J55OHG2dZbZLVsRaE+PgFCBzNV9/Jin9gWBRcPT5F6q2AUxEVgGwdO3E/WgsbHGgL+PL6+2tuiXtEgRXrpo6uTvONwGCGosrFpGJvtC8AaPrK5/ESNIXX==",
 
   "permissions": [
     "activeTab",
     "scripting", 
     "storage",
+    "tabs",
     "sidePanel",
-    "identity"
+    "notifications"
+  ],
+
+  "host_permissions": [
+    "https://api.sabapplier.com/*",
+    "https://sabapplier.com/*",
+    "https://*.sabapplier.com/*",
+    "<all_urls>"
   ],
 
   "action": {
@@ -32,27 +38,19 @@
     "type": "module"
   },
 
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content-script.js"],
+      "run_at": "document_end"
+    }
+  ],
+
   "icons": {
     "16": "logos/logo-16.png",
     "32": "logos/logo-32.png",
     "48": "logos/logo-48.png",
     "128": "logos/logo-128.png"
-  },
-
-  "host_permissions": [
-    "http://localhost:3000/*",
-    "http://localhost:8000/*",
-    "http://127.0.0.1:3000/*",
-    "http://127.0.0.1:8000/*",
-    "https://api.sabapplier.com/*",
-    "https://accounts.google.com/*",
-    "https://www.googleapis.com/*",
-    "<all_urls>"
-  ],
-
-  "oauth2": {
-    "client_id": "1014179036736-d8et6ht2jf4kf9flcol0uv0ktv33v5fh.apps.googleusercontent.com",
-    "scopes": ["openid", "email", "profile"]
   }
 }
 
