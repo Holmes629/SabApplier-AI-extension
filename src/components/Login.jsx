@@ -1,89 +1,92 @@
 import React, { useState } from 'react';
-import Loader from './Loader';
-import { Eye, EyeOff } from "lucide-react";
-import './Login.css';
+import { ArrowRight } from 'lucide-react';
+import Footer from './Footer';
+
+const WEBSITE_URL = 'https://sabapplier.com'; // Production URL
 
 export default function Login({ onLogin }) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [statusMessage, setStatusMessage] = useState('');
-  
-  // Show loader if loading 
-  const showLoader = loading ;
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
-  const onStatusUpdate = (msg, type) => {
-    setStatusMessage(msg);
+  const handleLoginRedirect = () => {
+    setIsRedirecting(true);
+    // Open your website's login page in a new tab
+    chrome.tabs.create({ 
+      url: `${WEBSITE_URL}/login`,
+      active: true 
+    });
+    
+    // Show a message and close the extension popup after a short delay
+    setTimeout(() => {
+      window.close();
+    }, 1000);
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setStatusMessage('');
-
+  const handleSignupRedirect = () => {
+    setIsRedirecting(true);
+    // Open your website's signup page in a new tab
+    chrome.tabs.create({ 
+      url: `${WEBSITE_URL}/signup`,
+      active: true 
+    });
     
-    try {
-      // Call the parent's handleLogin function which handles storage
-      if (onLogin) {
-        await onLogin(email, password);
-      }
-      
-    } catch (err) {
-      console.error('Login error:', err);
-      setStatusMessage('Login failed: ' + (err.message || 'Unknown error'));
-
-    }
+    // Show a message and close the extension popup after a short delay
     setTimeout(() => {
-      setLoading(false);
-    },3000)
-    
+      window.close();
+    }, 1000);
   };
 
   return (
-    <div className={`login-container${showLoader ? ' blurred' : ''}`}>
+    <div className="h-full flex flex-col">
+      <div className="flex-1 flex items-center justify-center p-4">
+        <div className="w-full max-w-md mx-auto">
+          {/* Header with Logo */}
+          <div className="text-center mb-8 animate-fadeIn">
+            <img 
+              src="/logo.jpeg" 
+              alt="SabApplier AI Logo" 
+              className="w-24 h-24 mx-auto mb-4 rounded-xl object-cover"
+            />
+            <h1 className="text-2xl font-bold text-gray-800 mb-2">
+              Welcome to SabApplier AI
+            </h1>
+            <p className="text-gray-600 text-sm mb-6">
+              Sign in to continue to your account
+            </p>
+          </div>
+
+          {/* Simple Button Container */}
+          <div className="space-y-4">
+            {/* Login Button */}
+            <button 
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg transition-all duration-200 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
+              onClick={handleLoginRedirect}
+              disabled={isRedirecting}
+              data-testid="login-button"
+            >
+              <span>
+                {isRedirecting ? 'Redirecting...' : 'Login'}
+              </span>
+              {!isRedirecting && <ArrowRight className="ml-2 h-4 w-4" />}
+            </button>
+
+            {/* Signup Button */}
+            <button 
+              className="w-full bg-white hover:bg-gray-100 text-gray-800 font-medium py-3 px-4 rounded-lg transition-all duration-200 flex items-center justify-center border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+              onClick={handleSignupRedirect}
+              disabled={isRedirecting}
+              data-testid="signup-button"
+            >
+              <span>
+                {isRedirecting ? 'Redirecting...' : 'Create Account'}
+              </span>
+              {!isRedirecting && <ArrowRight className="ml-2 h-4 w-4" />}
+            </button>
+          </div>
+        </div>
+      </div>
       
-      <form className="login-form" onSubmit={handleSubmit}>
-        <div className="input-group">
-          <input
-            className="login-input"
-            type="email"
-            placeholder="Enter your email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            disabled={loading}
-          />
-        </div>
-        <div className="input-group">
-          <input
-            className="login-input password-input"
-            type={showPassword ? "text" : "password"}
-            placeholder="Enter your password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            disabled={loading}
-          />
-          <button
-            type="button"
-            className="password-toggle"
-            onClick={() => setShowPassword(!showPassword)}
-            disabled={loading}
-            aria-label={showPassword ? "Hide password" : "Show password"}
-          >
-            <span className={`eye-icon ${showPassword ? 'eye-open' : 'eye-closed'}`}>
-              {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-            </span>
-          </button>
-        </div>
-        <button className="login-button" type="submit" disabled={loading}>
-          <span className="button-text">
-            {loading ? 'Logging in...' : 'Login'}
-          </span>
-        </button>
-      </form>
-      {showLoader && <Loader message={statusMessage || 'Logging in...'} />}
+      {/* Footer */}
+      <Footer />
     </div>
   );
 }
