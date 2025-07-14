@@ -274,7 +274,7 @@ const DataPreview = ({ user, adaptiveLearningData, newDataCount }) => {
                             No Data Captured or Changed
                         </h3>
                         <p className="text-gray-600 text-sm max-w-md mx-auto">
-                            Fill out forms or modify autofilled data to see it here for review and saving.
+                            Fill out forms or modify autofilled data to see it here for review and saving for Further Use.
                         </p>
                     </div>
                 </div>
@@ -294,13 +294,13 @@ const DataPreview = ({ user, adaptiveLearningData, newDataCount }) => {
                         <h1 className="text-lg md:text-xl font-bold text-gray-900 tracking-tight">Form Data Preview</h1>
                     </div>
                     <p className="text-xs text-gray-600 max-w-2xl mx-auto leading-relaxed">
-                        Modifications detected in autofilled form fields. Review and save changes.
+                        Modifications detected in autofilled form fields. Save new Data for Further Use.
                     </p>
                 </div>
 
                 {/* Select All Checkbox */}
                 <div className="flex items-center mb-3">
-                    <input
+                    <input  
                         type="checkbox"
                         checked={selectAll}
                         onChange={handleSelectAll}
