@@ -4,7 +4,7 @@ import './index.css';
 
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
-import YourDetails from './components/YourDetails';
+import MissedFields from './components/MissedFields';
 import FilledDetails from './components/FilledDetails';
 import DataPreview from './components/DataPreview';
 import Header from './components/Header';
@@ -24,6 +24,8 @@ function AppInner() {
   const [toastMessage, setToastMessage] = useState('');
   const toastRef = React.useRef(false);
   const [savedUsers, setSavedUsers] = useState([]);
+  const [adaptiveLearningData, setAdaptiveLearningData] = useState([]);
+  const [newDataCount, setNewDataCount] = useState(0);
   const [loadingMessage, setLoadingMessage] = useState('Loading SabApplier AI...');
 
   // Use JWT authentication hook
@@ -157,6 +159,116 @@ function AppInner() {
     });
   }, [isAuthenticated, userData, jwtLoading, jwtError]);
 
+
+  // ################### for adaptive learning data checking ###################
+  useEffect(() => {
+      const intervalId = setInterval(() => {
+          chrome.storage.session.get('autoFillDataResult', (data) => {
+              console.log('Retrieved temporary response:', data.autoFillDataResult.fillResults.autoFillData2);
+              checkForModifications(data.autoFillDataResult.fillResults.autoFillData2);
+          });
+      }, 2000);
+
+      return () => clearInterval(intervalId); // cleanup on unmount
+  }, []);
+
+  const checkForModifications = async (autoFillData) => {
+      // Safe query for active tab
+      let tab;
+      try {
+          const tabs = await chrome.tabs.query({
+          active: true,
+          currentWindow: true,
+          });
+
+          if (!tabs || tabs.length === 0) {
+          onStatusUpdate("⚠️ No active tab found. Please refresh and try again.", "error");
+          return { error: "No active tab found" };
+          }
+
+          tab = tabs[0];
+      } catch (error) {
+          console.error("Error querying tabs:", error);
+          onStatusUpdate("⚠️ Error accessing tab. Please refresh and try again.", "error");
+          return { error: "Tab query failed" };
+      }
+
+      try {
+          const [result] = await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          func: (autoFillData) => {
+              const allInputs = [];
+              const list = document.querySelectorAll("input, textarea, select, label");
+
+              for (const input of list) {
+              try {
+                  const name = input?.name;
+                  const labelText = document.querySelector(`label[for="${input.id}"]`)?.innerText || input.placeholder || '';
+                  const value = input?.value;
+                  const type = input?.type;
+
+                  // ❌ Skip hidden and buttons
+                  if (
+                      !name ||
+                      !value ||
+                      value === '' ||
+                      type === 'hidden' ||
+                      type === 'button' ||
+                      type === 'submit' ||
+                      type === 'reset'
+                  ) {
+                      continue;
+                  }
+
+                  console.log('data preview: ', name, value, type, autoFillData?.[name], Object.keys(autoFillData || {}), Object.keys(autoFillData || {})[0], typeof name, typeof Object.keys(autoFillData || {})[0]);
+                  if (type !== 'file') {
+                  if (value && value !== '' && value !== autoFillData?.[name]) {
+                      allInputs.push({
+                      name: name,
+                      value: value
+                      });
+                  }
+                  } else if (
+                  type === 'file' &&
+                  input.files &&
+                  input.files.length > 0
+                  ) {
+                  const file = input.files[0];
+                  if (file.name !== autoFillData?.[name]?.name) {
+                      allInputs.push({
+                      name: name,
+                      value: file.name,
+                      type: 'file'
+                      });
+                  }
+                  }
+              } catch (err) {
+                  console.warn(`Skipping input due to error:`, input, err);
+              }
+              }
+
+              return allInputs;
+          },
+          args: [autoFillData]
+          });
+
+          // ✅ Safely update state in React context
+          try {
+              const modifiedInputs = result.result;
+              setAdaptiveLearningData(modifiedInputs);
+              setNewDataCount(modifiedInputs.length);
+              console.log("Modified inputs checked:", modifiedInputs);
+          } catch (err) {
+              console.error("Failed to update adaptive learning data:", err);
+              onStatusUpdate("⚠️ Failed to update data. Please try again.", "error");
+          }
+      } catch (err) {
+          console.error("Failed to execute content script:", err);
+          onStatusUpdate("⚠️ Script execution failed", "error");
+      }
+  };
+  // --------------------- end of adaptive learning data checking ---------------------
+
   const handleLogout = async () => {
     try {
       setLoading(true);
@@ -233,13 +345,6 @@ function AppInner() {
   }
 
   console.log('Authenticated, rendering main UI. User:', user);
-  
-  // Debug data - remove in production
-  console.log('Routes available:');
-  console.log('- /dashboard');
-  console.log('- /your-details');
-  console.log('- /filled-details');
-  console.log('- /data-preview');
 
   return (
     <div className="h-screen flex flex-col bg-white overflow-hidden">
@@ -251,12 +356,11 @@ function AppInner() {
             <Routes>
               <Route path="/dashboard" element={
                 <ErrorBoundary>
-                  <Dashboard user={user} onLogout={handleLogout} />
+                  <Dashboard user={user} onLogout={handleLogout} newDataCount={adaptiveLearningData.length} />
                 </ErrorBoundary>
               } />
-              <Route path="/your-details" element={<YourDetails user={user} />} />
-              <Route path="/filled-details" element={<FilledDetails user={user} />} />
-              <Route path="/data-preview" element={<DataPreview user={user} />} />
+              <Route path="/your-details" element={<MissedFields user={user} />} />
+              <Route path="/data-preview" element={<DataPreview user={user} adaptiveLearningData={adaptiveLearningData} />} />
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
             </Routes>
           </ErrorBoundary>

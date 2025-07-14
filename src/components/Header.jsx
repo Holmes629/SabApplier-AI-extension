@@ -12,11 +12,12 @@ import {
   ChevronDown 
 } from 'lucide-react';
 
-const Header = ({ user, onLogout }) => {
+const Header = ({ user, onLogout, newDataCount }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [notFilledCount, setNotFilledCount] = useState(0);
   const profileRef = useRef(null);
 
   useEffect(() => {
@@ -26,6 +27,17 @@ const Header = ({ user, onLogout }) => {
 
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      chrome.storage.session.get('autoFillDataResult', (data) => {
+        const notFilled = data?.autoFillDataResult?.fillResults?.notFilled || [];
+        setNotFilledCount(notFilled.length);
+      });
+    }, 2000); // Poll every 2 seconds
+
+    return () => clearInterval(interval);
   }, []);
 
   // Listen for openDataPreview message to navigate from anywhere
@@ -77,14 +89,14 @@ const Header = ({ user, onLogout }) => {
     },
     {
       path: '/your-details',
-      label: 'New Data',
-      icon: <FileText size={18} />,
+      label: 'Missed fields',
+      icon: <Eye size={18} />,
       description: 'Check your data'
     },
     {
       path: '/data-preview',
-      label: 'Preview',
-      icon: <Eye size={18} />,
+      label: 'New Data',
+      icon: <FileText size={18} />,
       description: 'Data preview'
     }
   ];
@@ -106,26 +118,36 @@ const Header = ({ user, onLogout }) => {
 
           {/* Center - Navigation */}
           <nav className="hidden md:flex items-center gap-1 absolute left-1/2 transform -translate-x-1/2">
-            {navItems.map((item) => (
-              <button
-                key={item.path}
-                onClick={() => navigate(item.path)}
-                className={`font-medium transition-all duration-300 hover:scale-105 relative group flex items-center gap-1.5 px-2 py-1.5 rounded-md ${
-                  isActive(item.path)
-                    ? 'text-blue-300'
-                    : 'text-white/90 hover:text-blue-300'
-                }`}
-                title={item.description}
-              >
-                <span className="transition-transform group-hover:scale-110">{item.icon}</span>
-                <span className="text-xs">{item.label}</span>
-                
-                {/* Active indicator */}
-                <span className={`absolute -bottom-1 left-0 h-0.5 bg-blue-400 transition-all duration-300 ${
-                  isActive(item.path) ? 'w-full' : 'w-0 group-hover:w-full'
-                }`}></span>
-              </button>
-            ))}
+            {navItems.map((item) => { 
+              const showBadge = item.label === 'Missed fields' && notFilledCount > 0;
+              return (
+                <button
+                  key={item.path}
+                  onClick={() => navigate(item.path)}
+                  className={`font-medium transition-all duration-300 hover:scale-105 relative group flex items-center gap-1.5 px-2 py-1.5 rounded-md ${
+                    isActive(item.path)
+                      ? 'text-blue-300'
+                      : 'text-white/90 hover:text-blue-300'
+                  }`}
+                  title={item.description}
+                >
+                  <span className="relative transition-transform group-hover:scale-110">
+                    {item.icon}
+                    {showBadge && (
+                      <span className="absolute -top-1 -right-2 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full shadow">
+                        {notFilledCount}
+                      </span>
+                    )}
+                  </span>
+                  <span className="text-xs">{item.label}</span>
+                  
+                  {/* Active indicator */}
+                  <span className={`absolute -bottom-1 left-0 h-0.5 bg-blue-400 transition-all duration-300 ${
+                    isActive(item.path) ? 'w-full' : 'w-0 group-hover:w-full'
+                  }`}></span>
+                </button>
+              );
+            })}
           </nav>
 
           {/* Right Side - User Profile */}
@@ -223,21 +245,37 @@ const Header = ({ user, onLogout }) => {
         {/* Mobile Navigation */}
         <div className="md:hidden border-t border-blue-300/10 py-1">
           <nav className="flex items-center justify-around">
-            {navItems.map((item) => (
-              <button
-                key={item.path}
-                onClick={() => navigate(item.path)}
-                className={`flex flex-col items-center gap-0.5 px-2 py-1 rounded-md transition-all duration-200 ${
-                  isActive(item.path)
-                    ? 'text-blue-300 bg-blue-900/30'
-                    : 'text-white/90 hover:text-blue-300 hover:bg-blue-900/20'
-                }`}
-                title={item.description}
-              >
-                <span className="text-base">{item.icon}</span>
-                <span className="text-[10px] font-medium">{item.label}</span>
-              </button>
-            ))}
+            {navItems.map((item) => {
+              const showBadge1 = item.label === 'Missed fields' && notFilledCount > 0;
+              const showBadge2 = item.label === 'New Data' && newDataCount > 0;
+              return (
+                <button
+                  key={item.path}
+                  onClick={() => navigate(item.path)}
+                  className={`flex flex-col items-center gap-0.5 px-2 py-1 rounded-md transition-all duration-200 ${
+                    isActive(item.path)
+                      ? 'text-blue-300 bg-blue-900/30'
+                      : 'text-white/90 hover:text-blue-300 hover:bg-blue-900/20'
+                  }`}
+                  title={item.description}
+                >
+                  <span className="relative transition-transform group-hover:scale-110">
+                    {item.icon}
+                    {showBadge1 && (
+                      <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full shadow">
+                        {notFilledCount}
+                      </span>
+                    )}
+                    {showBadge2 && (
+                      <span className="absolute -top-2 -right-2 bg-green-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full shadow">
+                        {newDataCount}
+                      </span>
+                    )}
+                    </span>
+                  <span className="text-[10px] font-medium">{item.label}</span>
+                </button>
+              );
+            })}
           </nav>
         </div>
       </div>

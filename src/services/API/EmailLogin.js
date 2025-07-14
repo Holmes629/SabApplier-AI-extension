@@ -1,7 +1,7 @@
 /* global chrome */
+
 const API_BASE_URL = 'https://api.sabapplier.com/api';
-// const API_BASE_URL = 'https://api.sabapplier.com/api';
-// const API_BASE_URL = 'https://sabapplier.pythonanywhere.com/api';
+// const API_BASE_URL = 'http://127.0.0.1:8000/api';
 
 export const EmailLogin = async (params, onStatusUpdate) => {
     try {
@@ -95,9 +95,6 @@ export const EmailLogin = async (params, onStatusUpdate) => {
             ...(shareId && { share_id: shareId })
         };
         
-        console.log('Making API request to:', apiUrl);
-        console.log('Request body:', { ...requestBody, html_data: '[HTML_CONTENT]' }); // Don't log full HTML
-        
         const response = await fetch(apiUrl, {
             method: 'POST',
             headers: {
@@ -113,7 +110,6 @@ export const EmailLogin = async (params, onStatusUpdate) => {
         }
         
         const data = await response.json();
-        console.log('API Response:', data);
         
         if (data.error) {
             throw new Error(data.error);
@@ -130,7 +126,7 @@ export const EmailLogin = async (params, onStatusUpdate) => {
             }
         }
         
-        console.log('Parsed autofill data:', autofillData);
+        console.log('autofill data:', autofillData);
         
         // Apply autofill data to the page
         if (autofillData && Array.isArray(autofillData) && autofillData.length > 0) {
@@ -139,79 +135,202 @@ export const EmailLogin = async (params, onStatusUpdate) => {
             try {
                 const fillResult = await chrome.scripting.executeScript({
                     target: { tabId: tab.id },
-                    function: (autofillDataArray) => {
+                    function: async (autofillData) => {
+                        // cloudinary function for documents compression or expansion, and resizing.
+                        const uploadFileToCloudinary = async (dropboxUrl, filename, file_type, targetSize, pixels) => {
+                            const cloudinaryUrl = "https://api.cloudinary.com/v1_1/detvvagxg/auto/upload";
+                            const uploadPreset = "unsigned_preset_for_extension"; // Replace with your actual preset
+
+                            const response = await fetch(dropboxUrl);
+                            const blob = await response.blob();
+
+                            const formData = new FormData();
+                            formData.append("file", blob);
+                            formData.append("upload_preset", uploadPreset);
+
+                            const cloudRes = await fetch(cloudinaryUrl, {
+                                method: "POST",
+                                body: formData,
+                            });
+
+                            if (!cloudRes.ok) throw new Error("Cloudinary upload failed");
+
+                            const data = await cloudRes.json();
+
+                            // Build transformed URL
+                            try {
+                                const allowedTypes = ['jpg', 'jpeg', 'png', 'pdf'];
+                                file_type = file_type.split(',')[0].trim().toLowerCase().replace('.', '');
+                                if (!allowedTypes.includes(file_type)) {
+                                    file_type = 'jpg'; // default will be jpg
+                                }
+                            } catch (err) {
+                                console.log('error with file_type: ', err);
+                                file_type = 'jpg';
+                            }
+                            let pixels_w = 600; let pixels_h = 800;
+                            try {
+                                [pixels_w, pixels_h] = pixels.toLowerCase().replace(/[^0-9x]/g, '').split('x').map(Number);
+                            } catch (err) {
+                                console.log('error occured with pixels: ', err);
+                                pixels_w = 600; pixels_h = 800;
+                            }
+                            console.log('filename, file_type, size, pixels:', filename, file_type, pixels_w, pixels_h);
+                            
+                            const publicId = data.public_id;
+                            for (let quality = 100; quality >= 20; quality -= 5) {
+                                const transformedUrl = `https://res.cloudinary.com/detvvagxg/image/upload/f_${file_type},w_${pixels_w},h_${pixels_h},q_${quality},c_fill,g_auto/${publicId}`;
+                                
+                                const uploadedBlob = await fetch(transformedUrl).then(res => res.blob());
+                                const file_name = `${ filename || data.original_filename }.${file_type}`;
+                                const sizeKB = uploadedBlob.size / 1024;
+
+                                console.log(`Quality ${quality}: ${sizeKB.toFixed(2)} KB`);
+
+                                if (sizeKB <= targetSize + 5 || sizeKB >= targetSize - 5) {
+                                    console.log('filename: ', file_name, uploadedBlob.size/ 1024);
+                                    return new File([uploadedBlob], file_name, { type: uploadedBlob.type });
+                                }
+                            }
+                            return new File([blob], filename, { type: blob.type });
+                        };
+                        // ------------------------------- x ---------------------------------
+
                         // Apply autofill data to form fields
                         let filledCount = 0;
                         let filledFields = [];
                         let notFilledFields = [];
-                        
-                        // Process each autofill data item
-                        autofillDataArray.forEach(item => {
-                            // Skip items that don't have valid data
-                            if (!item || typeof item !== 'object') return;
-                            
-                            // Extract the field selector and value from each item
-                            for (const [selector, value] of Object.entries(item)) {
-                                if (selector === 'type' || !value || value === null || value === 'null') {
-                                    continue;
-                                }
-                                
-                                try {
-                                    const elements = document.querySelectorAll(selector);
-                                    let fieldFilled = false;
-                                    
-                                    elements.forEach(element => {
-                                        if (element && value) {
-                                            const elementType = element.type?.toLowerCase() || element.tagName?.toLowerCase();
-                                            
-                                            if (elementType === 'checkbox' || elementType === 'radio') {
-                                                element.checked = value === 'checked' || value === 'true' || value === true;
-                                                fieldFilled = true;
-                                            } else if (elementType === 'select-one' || elementType === 'select') {
-                                                // For select elements, try to set the value
-                                                element.value = value;
-                                                fieldFilled = true;
-                                            } else if (elementType === 'file') {
-                                                // For file inputs, we can't actually set the file, but we can log it
-                                                console.log(`File input ${selector} would be filled with: ${value}`);
-                                                fieldFilled = true;
-                                            } else {
-                                                // For regular input, textarea, etc.
-                                                element.value = value;
-                                                fieldFilled = true;
-                                            }
-                                            
-                                            if (fieldFilled) {
-                                                // Trigger change events
-                                                element.dispatchEvent(new Event('change', { bubbles: true }));
-                                                element.dispatchEvent(new Event('input', { bubbles: true }));
-                                                filledCount++;
-                                            }
-                                        }
-                                    });
-                                    
-                                    if (fieldFilled) {
-                                        filledFields.push(selector);
+                        let autoFillData2 = {};
+                        let autofillIndex = 0;
+                        let input;
+
+                        while (autofillIndex < autofillData.length) {
+                            const data = autofillData[autofillIndex];
+                            const selector = Object.keys(data).find((k) => k !== "type" && k !== "file_name" && k !== "file_type" && k !== "pixels" && k !== "size");
+                            const value = data[selector];
+                            const inputType = data["type"] || selector.split('[')[0];
+
+                            try {
+                                if (["input", "textarea", "select"].includes(inputType)) {
+                                    input = document.querySelector(selector);
+                                    if (!input) { autofillIndex++; continue; }
+                                    input.value = String(value);
+                                    input.dispatchEvent(new Event("input", { bubbles: true }));
+                                    autoFillData2[input.name] = value;
+                                    if (input != null && input.value != value) {
+                                        notFilledFields.push({[input.name]: value, type: inputType, selector: selector});
+                                        console.warn(`⚠️ Input not filled correctly: ${selector} (expected: ${value}, got: ${input.value})`);
                                     } else {
-                                        notFilledFields.push(selector);
+                                        filledFields.push({[input.name]: value});
+                                        console.log("input filled: ", input, value);
                                     }
-                                } catch (selectorError) {
-                                    console.warn(`Failed to process selector ${selector}:`, selectorError);
-                                    notFilledFields.push(selector);
+                                } else if (inputType === "checkbox") {
+                                    input = document.querySelector(selector);
+                                    if (!input) { autofillIndex++; continue; }
+                                    autoFillData2[input.name] = value;
+                                    if (["false", false, 'no', 'NO', 'No', ''].includes(value)) {
+                                        input.checked = false;
+                                    } else {
+                                        filledFields.push(selector);
+                                        input.checked = true;
+                                    }
+                                    input.dispatchEvent(new Event("change", { bubbles: true }));
+                                    if (input.checked !== (value === true || value === 'true' || value === 'yes' || value === 'YES' || value === 'Yes')) {
+                                        notFilledFields.push({[input.name]: value, type: inputType, selector: selector});
+                                        console.warn(`⚠️ Checkbox not filled correctly: ${selector} (expected: ${value}, got: ${input.checked})`);
+                                    } else {
+                                        filledFields.push({[input.name]: value});
+                                        console.log("checkbox filled: ", input, value);
+                                    }
+                                } else if (inputType === "radio") {
+                                    input = document.querySelector(selector);
+                                    if (!input) { autofillIndex++; continue; }
+                                    input.checked = value;
+                                    autoFillData2[input.name] = value;
+                                    input.dispatchEvent(new Event("change", { bubbles: true }));
+                                    if (input.checked !== (value === true || value === 'true' || value === 'yes' || value === 'YES' || value === 'Yes')) {
+                                        notFilledFields.push({[input.name]: value, type: inputType, selector: selector});
+                                        console.warn(`⚠️ Radio not filled correctly: ${selector} (expected: ${value}, got: ${input.checked})`);
+                                    } else {
+                                        filledFields.push({[input.name]: value});
+                                        console.log("radio filled: ", input, value);
+                                    }
+                                } else if (inputType === "label") {
+                                    input = document.querySelector(selector);
+                                    if (!input) { autofillIndex++; continue; }
+                                    input.click();
+                                    autoFillData2[input.name] = value;
+                                    input.dispatchEvent(new Event("change", { bubbles: true }));
+                                    if (input.textContent.trim() !== value.trim()) {
+                                        notFilledFields.push({[input.name]: value, type: inputType, selector: selector});
+                                        console.warn(`⚠️ Label not filled correctly: ${selector} (expected: ${value}, got: ${input.textContent.trim()})`);
+                                    } else {
+                                        filledFields.push({[input.name]: value});
+                                        console.log("label filled: ", input, value);
+                                    }
+                                } else if (inputType === "file") {
+                                    try {
+                                        const dropbox_url = value
+                                            .replace("www.dropbox.com", "dl.dropboxusercontent.com")
+                                            .replace("?dl=0", "");
+
+                                        // Get quality for compression
+                                        let quality = 100;
+                                        let actualSize = 'error';
+                                        let targetSize = 'error';
+                                        try {
+                                            targetSize = parseFloat(data["size"]) || 20; // expected in KB
+                                            const response = await fetch(dropbox_url, { method: "HEAD" });
+                                            const sizeBytes = parseInt(response.headers.get("Content-Length"), 10);
+                                            actualSize =  sizeBytes / 1024; // convert to KB
+                                            quality = Math.min(100, Math.floor((targetSize / actualSize) * 100));
+                                        } catch (err) {
+                                            console.log('error while calculating compression: ', err);
+                                            quality = 100;
+                                        }
+                                        
+                                        console.log("while filling image: ", dropbox_url, data['file_name'], data["file_type"] || data['file_name'].split('.')[1], actualSize, targetSize, quality, data["pixels"])
+                                        const filename = data['file_name']?.split('.')[0] || value.split("/").pop().split("?")[0];
+                                        const file = await uploadFileToCloudinary(dropbox_url, filename, data["file_type"], targetSize, data["pixels"]);
+                                        const dataTransfer = new DataTransfer();
+                                        dataTransfer.items.add(file);
+
+                                        input = document.querySelector(selector);
+                                        if (!input) { autofillIndex++; continue; }
+                                        input.files = dataTransfer.files;
+                                        input.dispatchEvent(new Event("change", { bubbles: true }));
+                                        autoFillData2[input.name] = file;
+                                        if (dataTransfer.files != null && (input.files.length === 0 || input.files[0].name !== file.name)) {
+                                            notFilledFields.push({[input.name]: file.name, file: file, type: inputType, selector: selector});
+                                            console.log(`⚠️ File upload failed for ${selector}: expected ${file.name}, got ${input.files[0]?.name || 'none'}`);
+                                        } else {
+                                            filledFields.push({[input.name]: value, type: inputType, selector: selector});
+                                            console.log("file filled: ", input, filename);
+                                        }
+                                    } catch (err) {
+                                        console.error(`❌ File upload failed for ${selector}:`, err);
+                                    }
+                                } else {
+                                    console.warn(`⚠️ Unknown input type "${inputType}" for ${selector}`);
                                 }
+                            } catch (err) {
+                                console.error(`❌ Error filling input ${selector}:`, err);
                             }
-                        });
+                            filledCount++;
+                            autofillIndex++;
+                        }
                         
                         return {
-                            filledCount,
-                            filledFields,
-                            notFilledFields
+                            filledCount: filledCount,
+                            filledFields: filledFields,
+                            notFilledFields: notFilledFields,
+                            autoFillData2: autoFillData2,
                         };
                     },
                     args: [autofillData]
                 });
                 
-                const fillResults = fillResult[0].result;
+                const fillResults = fillResult[0]?.result;
                 console.log('Fill results:', fillResults);
                 
                 if (fillResults.filledCount > 0) {
@@ -228,7 +347,8 @@ export const EmailLogin = async (params, onStatusUpdate) => {
                     fillResults: {
                         filled: fillResults.filledFields,
                         notFilled: fillResults.notFilledFields,
-                        filledCount: fillResults.filledCount
+                        filledCount: fillResults.filledCount,
+                        autoFillData2: fillResults.autoFillData2
                     }
                 };
                 
@@ -245,8 +365,9 @@ export const EmailLogin = async (params, onStatusUpdate) => {
                 fillResults: {
                     filled: [],
                     notFilled: [],
-                    filledCount: 0
-                }
+                    filledCount: 0,
+                    autofillData: autofillData
+                }   
             };
         }
         

@@ -276,6 +276,14 @@ export default function Dashboard({ user, onLogout }) {
         console.log('Status update:', msg);
         setStatus(msg);
       });
+
+      if (chrome?.storage?.session) {
+        chrome.storage.session.set({ autoFillDataResult: response }, () => {
+          console.log('Temporary response stored in session storage', response);
+        });
+      } else {
+        console.warn('chrome.storage.session not available in this environment.');
+      }
       
       if (response.error) {
         throw new Error(response.error);
@@ -356,7 +364,7 @@ export default function Dashboard({ user, onLogout }) {
                   <PenSquare size={32} className="mx-auto mb-2 text-blue-600" />
                   <h3 className="text-base font-bold text-gray-800 mb-2">Auto Fill Details</h3>
                   <p className="text-xs text-gray-600 mb-3 max-w-md mx-auto">
-                    Automatically fill forms with your saved information on SabAppliers
+                    Automatically fill forms with your saved information on SabApplier
                   </p>
                 </div>
               </div>

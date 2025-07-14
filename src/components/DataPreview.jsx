@@ -3,21 +3,13 @@ import { saveLearnedFormData } from '../services/API/LearningAPI';
 import { useNavigate } from 'react-router-dom';
 import Footer from './Footer';
 import { 
-  Check, 
   X, 
-  Globe, 
   RefreshCw, 
-  AlertCircle, 
   Save, 
-  Trash2,
-  Clock,
-  ChevronDown,
-  ChevronUp,
   Eye,
-  Database
 } from 'lucide-react';
 
-const DataPreview = ({ user }) => {
+const DataPreview = ({ user, adaptiveLearningData, newDataCount }) => {
     const [capturedData, setCapturedData] = useState([]);
     const [website, setWebsite] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -29,6 +21,7 @@ const DataPreview = ({ user }) => {
     const [showChangePopup, setShowChangePopup] = useState(false);
     const [savingChanges, setSavingChanges] = useState(false);
     const navigate = useNavigate();
+
 
     useEffect(() => {
         setLoading(true);
@@ -268,7 +261,8 @@ const DataPreview = ({ user }) => {
         );
     }
 
-    if (capturedData.length === 0) {
+
+    if (adaptiveLearningData?.length === 0) {
         return (
             <div className="h-full flex flex-col bg-white overflow-hidden">
                 <div className="flex-1 w-full mx-auto px-3 pt-20 pb-3 space-y-3 overflow-y-auto">
@@ -300,7 +294,7 @@ const DataPreview = ({ user }) => {
                         <h1 className="text-lg md:text-xl font-bold text-gray-900 tracking-tight">Form Data Preview</h1>
                     </div>
                     <p className="text-xs text-gray-600 max-w-2xl mx-auto leading-relaxed">
-                        {website ? `Data captured from ${website.title || website.domain || website.url}` : 'Review and save captured form data.'}
+                        Modifications detected in autofilled form fields. Review and save changes.
                     </p>
                 </div>
 
@@ -314,16 +308,16 @@ const DataPreview = ({ user }) => {
                         id="select-all-checkbox"
                     />
                     <label htmlFor="select-all-checkbox" className="text-xs font-medium text-gray-700">
-                        Select All ({selectedIndexes.length}/{capturedData.length})
+                        Select All ({selectedIndexes.length}/{newDataCount || adaptiveLearningData.length})
                     </label>
                 </div>
 
                 {/* Data List */}
                 <div className="space-y-2 mb-4">
-                    {capturedData.map((item, index) => {
-                        const selector = Object.keys(item).find(k => k !== "type");
-                        const value = item[selector];
-                        const type = item.type;
+                    {adaptiveLearningData.map((modifiedField, index) => {
+                        const name = modifiedField.name;
+                        const value = modifiedField.value;
+                        const type = modifiedField.type;
                         const checked = selectedIndexes.includes(index);
                         return (
                             <div key={index} className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm flex items-center">
@@ -338,20 +332,9 @@ const DataPreview = ({ user }) => {
                                     <div className="flex items-center justify-between mb-1">
                                         <div>
                                             <h4 className="font-semibold text-gray-900 text-xs">
-                                                {formatLabel(selector)}
+                                                {name}
                                             </h4>
-                                            <p className="text-xs text-gray-500">
-                                                {type}
-                                            </p>
                                         </div>
-                                        {value && (
-                                            <button
-                                                onClick={() => copyToClipboard(value, formatLabel(selector))}
-                                                className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition font-semibold"
-                                            >
-                                                Copy
-                                            </button>
-                                        )}
                                     </div>
                                     <div className="text-gray-700 text-xs">
                                         {!value ? (
