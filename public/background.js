@@ -156,9 +156,20 @@ class BackgroundJWTAuth {
 // Initialize JWT Auth service
 const jwtAuth = new BackgroundJWTAuth();
 
-// Periodically check for JWT tokens from website
+// Optimized JWT token checking with reduced frequency and better conditions
+let lastCheckTime = 0;
+const CHECK_INTERVAL = 30000; // Check every 30 seconds instead of 3 seconds
+const MIN_CHECK_INTERVAL = 10000; // Minimum 10 seconds between checks
+
 setInterval(async () => {
   try {
+    const now = Date.now();
+    
+    // Skip if we checked too recently
+    if (now - lastCheckTime < MIN_CHECK_INTERVAL) {
+      return;
+    }
+    
     // Get all tabs with the website
     const tabs = await chrome.tabs.query({
       url: [
@@ -167,93 +178,102 @@ setInterval(async () => {
       ]
     });
     
-    if (tabs.length > 0) {
-      // Check for JWT token in the active website tab
-      for (const tab of tabs) {
-        try {
-          const results = await chrome.scripting.executeScript({
-            target: { tabId: tab.id },
-            function: () => {
-              return {
-                jwt_token: localStorage.getItem('jwt_token'),
-                sabapplier_extension_jwt: localStorage.getItem('sabapplier_extension_jwt'),
-                sabapplier_user_data: localStorage.getItem('sabapplier_user_data'),
-                sabapplier_extension_user: localStorage.getItem('sabapplier_extension_user'),
-                sync_timestamp: localStorage.getItem('sabapplier_extension_sync_timestamp'),
-                // Check for logout flags
-                logout_flag: localStorage.getItem('sabapplier_extension_logout'),
-                logout_timestamp: localStorage.getItem('sabapplier_extension_logout_timestamp'),
-                // Check if main auth keys are missing (indicating logout)
-                token_missing: !localStorage.getItem('token'),
-                current_user_missing: !localStorage.getItem('currentUser'),
-                is_authenticated: localStorage.getItem('isAuthenticated'),
-                windowFlags: {
-                  sabApplierJWTToken: typeof window.sabApplierJWTToken !== 'undefined' ? 'present' : 'missing',
-                  sabApplierExtensionSync: typeof window.sabApplierExtensionSync !== 'undefined' ? window.sabApplierExtensionSync : null
-                }
-              };
-            }
-          });
+    // Skip if no relevant tabs are open
+    if (tabs.length === 0) {
+      return;
+    }
+    
+    // Only check active tabs to reduce overhead
+    const activeTabs = tabs.filter(tab => tab.active);
+    const tabsToCheck = activeTabs.length > 0 ? activeTabs : [tabs[0]];
+    
+    lastCheckTime = now;
+    
+    // Check for JWT token in the relevant website tabs
+    for (const tab of tabsToCheck) {
+      try {
+        const results = await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          function: () => {
+            return {
+              jwt_token: localStorage.getItem('jwt_token'),
+              sabapplier_extension_jwt: localStorage.getItem('sabapplier_extension_jwt'),
+              sabapplier_user_data: localStorage.getItem('sabapplier_user_data'),
+              sabapplier_extension_user: localStorage.getItem('sabapplier_extension_user'),
+              sync_timestamp: localStorage.getItem('sabapplier_extension_sync_timestamp'),
+              // Check for logout flags
+              logout_flag: localStorage.getItem('sabapplier_extension_logout'),
+              logout_timestamp: localStorage.getItem('sabapplier_extension_logout_timestamp'),
+              // Check if main auth keys are missing (indicating logout)
+              token_missing: !localStorage.getItem('token'),
+              current_user_missing: !localStorage.getItem('currentUser'),
+              is_authenticated: localStorage.getItem('isAuthenticated'),
+              windowFlags: {
+                sabApplierJWTToken: typeof window.sabApplierJWTToken !== 'undefined' ? 'present' : 'missing',
+                sabApplierExtensionSync: typeof window.sabApplierExtensionSync !== 'undefined' ? window.sabApplierExtensionSync : null
+              }
+            };
+          }
+        });
+        
+        if (results && results[0] && results[0].result) {
+          const data = results[0].result;
+          const token = data.jwt_token || data.sabapplier_extension_jwt;
+          const userData = data.sabapplier_user_data || data.sabapplier_extension_user;
           
-          if (results && results[0] && results[0].result) {
-            const data = results[0].result;
-            const token = data.jwt_token || data.sabapplier_extension_jwt;
-            const userData = data.sabapplier_user_data || data.sabapplier_extension_user;
+          // Check for logout conditions
+          const shouldLogout = data.logout_flag === 'true' || 
+                              (data.token_missing && data.current_user_missing) ||
+                              data.is_authenticated === 'false';
+                              
+          if (shouldLogout && jwtAuth.isAuthenticated) {
+            console.log('🔄 Logout detected in website, clearing extension auth...');
+            console.log('🔄 Logout indicators:', {
+              logout_flag: data.logout_flag,
+              token_missing: data.token_missing,
+              current_user_missing: data.current_user_missing,
+              is_authenticated: data.is_authenticated,
+              extension_authenticated: jwtAuth.isAuthenticated
+            });
             
-            // Check for logout conditions
-            const shouldLogout = data.logout_flag === 'true' || 
-                                (data.token_missing && data.current_user_missing) ||
-                                data.is_authenticated === 'false';
-                                
-            if (shouldLogout && jwtAuth.isAuthenticated) {
-              console.log('🔄 Logout detected in website, clearing extension auth...');
-              console.log('🔄 Logout indicators:', {
-                logout_flag: data.logout_flag,
-                token_missing: data.token_missing,
-                current_user_missing: data.current_user_missing,
-                is_authenticated: data.is_authenticated,
-                extension_authenticated: jwtAuth.isAuthenticated
-              });
-              
-              await jwtAuth.handleLogoutFromWebsite();
-              
-              // Clear the logout flag to prevent repeated processing
-              if (data.logout_flag === 'true') {
-                try {
-                  await chrome.scripting.executeScript({
-                    target: { tabId: tab.id },
-                    function: () => {
-                      localStorage.removeItem('sabapplier_extension_logout');
-                      localStorage.removeItem('sabapplier_extension_logout_timestamp');
-                      console.log('🔄 SabApplier Extension: Logout flags cleared');
-                    }
-                  });
-                } catch (error) {
-                  console.error('Error clearing logout flags:', error);
-                }
+            await jwtAuth.handleLogoutFromWebsite();
+            
+            // Clear the logout flag to prevent repeated processing
+            if (data.logout_flag === 'true') {
+              try {
+                await chrome.scripting.executeScript({
+                  target: { tabId: tab.id },
+                  function: () => {
+                    localStorage.removeItem('sabapplier_extension_logout');
+                    localStorage.removeItem('sabapplier_extension_logout_timestamp');
+                    console.log('🔄 SabApplier Extension: Logout flags cleared');
+                  }
+                });
+              } catch (error) {
+                console.error('Error clearing logout flags:', error);
               }
             }
-            // Check for login/token update
-            else if (token && token !== jwtAuth.token) {
-              console.log('🔄 Found JWT token in website localStorage, syncing...');
-              console.log('🔄 Token source:', data.jwt_token ? 'jwt_token' : 'sabapplier_extension_jwt');
-              console.log('🔄 Window flags:', data.windowFlags);
-              
-              await jwtAuth.handleTokenFromWebsite(token, userData ? JSON.parse(userData) : null);
-            }
           }
-        } catch (error) {
-          // Ignore errors for tabs that don't have the right permissions
-          if (!error.message.includes('Cannot access')) {
-            console.error('Error checking tab for JWT token:', error);
+          // Check for login/token update
+          else if (token && token !== jwtAuth.token) {
+            console.log('🔄 Found JWT token in website localStorage, syncing...');
+            console.log('🔄 Token source:', data.jwt_token ? 'jwt_token' : 'sabapplier_extension_jwt');
+            console.log('🔄 Window flags:', data.windowFlags);
+            
+            await jwtAuth.handleTokenFromWebsite(token, userData ? JSON.parse(userData) : null);
           }
+        }
+      } catch (error) {
+        // Ignore errors for tabs that don't have the right permissions
+        if (!error.message.includes('Cannot access')) {
+          console.error('Error checking tab for JWT token:', error);
         }
       }
     }
   } catch (error) {
     console.error('Error in JWT polling:', error);
   }
-}, 3000); // Check every 3 seconds
+}, CHECK_INTERVAL); // Check every 30 seconds instead of 3 seconds
 
 // When extension is installed, set up side panel behavior
 chrome.runtime.onInstalled.addListener(() => {

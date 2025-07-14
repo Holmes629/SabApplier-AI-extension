@@ -162,12 +162,26 @@ function AppInner() {
 
   // ################### for adaptive learning data checking ###################
   useEffect(() => {
+      let lastCheckTime = 0;
+      const MIN_CHECK_INTERVAL = 10000; // Minimum 10 seconds between checks
+      
       const intervalId = setInterval(() => {
+          const now = Date.now();
+          
+          // Skip if we checked too recently
+          if (now - lastCheckTime < MIN_CHECK_INTERVAL) {
+              return;
+          }
+          
+          lastCheckTime = now;
+          
           chrome.storage.session.get('autoFillDataResult', (data) => {
-              console.log('Retrieved temporary response:', data.autoFillDataResult.fillResults.autoFillData2);
-              checkForModifications(data.autoFillDataResult.fillResults.autoFillData2);
+              if (data?.autoFillDataResult?.fillResults?.autoFillData2) {
+                  console.log('Retrieved temporary response:', data.autoFillDataResult.fillResults.autoFillData2);
+                  checkForModifications(data.autoFillDataResult.fillResults.autoFillData2);
+              }
           });
-      }, 2000);
+      }, 15000); // Check every 15 seconds instead of 2 seconds
 
       return () => clearInterval(intervalId); // cleanup on unmount
   }, []);
