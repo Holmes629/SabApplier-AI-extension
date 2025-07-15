@@ -348,7 +348,7 @@ function AppInner() {
 
   return (
     <div className="h-screen flex flex-col bg-white overflow-hidden">
-      <Header user={user} onLogout={handleLogout} />
+      <Header user={user} onLogout={handleLogout} newDataCount={adaptiveLearningData.length} />
       {/* Main content with responsive padding for header + mobile nav */}
       <main className="flex-1 header-offset px-3 sm:px-4 bg-white overflow-y-auto">
         <div className="max-w-7xl mx-auto h-full">
