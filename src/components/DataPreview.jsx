@@ -90,6 +90,51 @@ const DataPreview = ({ user, adaptiveLearningData, newDataCount }) => {
         setLoading(false);
     };
 
+    const highlightFormField = (selector) => {
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            if (tabs.length === 0) return;
+
+            chrome.scripting.executeScript({
+                target: { tabId: tabs[0].id },
+                func: (selector) => {
+                    try {
+                        const el = document.querySelector("[name='" + selector + "']");
+                        if (!el) return;
+
+                        // Add highlight styles
+                        el.style.outline = '3px solid #3b82f6';
+                        el.style.outlineOffset = '2px';
+                        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    } catch (e) {
+                        console.warn('Invalid selector', selector);
+                    }
+                },
+                args: [selector]
+            });
+        });
+    };
+
+    const removeHighlight = (selector) => {
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            if (tabs.length === 0) return;
+
+            chrome.scripting.executeScript({
+                target: { tabId: tabs[0].id },
+                func: (selector) => {
+                    try {
+                        const el = document.querySelector("[name='" + selector + "']");;
+                        if (!el) return;
+                        el.style.outline = '';
+                        el.style.outlineOffset = '';
+                    } catch (e) {
+                        console.warn('Invalid selector', selector);
+                    }
+                },
+                args: [selector]
+            });
+        });
+    };
+
     const handleSaveData = async () => {
         if (!user?.email || selectedIndexes.length === 0) return;
         setLoading(true);
@@ -320,7 +365,11 @@ const DataPreview = ({ user, adaptiveLearningData, newDataCount }) => {
                         const type = modifiedField.type;
                         const checked = selectedIndexes.includes(index);
                         return (
-                            <div key={index} className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm flex items-center">
+                            <div key={index} 
+                                className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm flex items-center"
+                                onMouseEnter={() => highlightFormField(modifiedField.name)}
+                                onMouseLeave={() => removeHighlight(modifiedField.name)}
+                            >
                                 <input
                                     type="checkbox"
                                     checked={checked}

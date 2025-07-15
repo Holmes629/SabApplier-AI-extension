@@ -38,7 +38,7 @@ const YourDetails = ({ user }) => {
     };
 
 
-    const highlightFor5Seconds = (selector) => {
+    const highlightFormField = (selector) => {
         chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
             if (tabs.length === 0) return;
 
@@ -53,12 +53,6 @@ const YourDetails = ({ user }) => {
                         el.style.outline = '3px solid #3b82f6';
                         el.style.outlineOffset = '2px';
                         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-
-                        // Remove highlight after 5 seconds
-                        setTimeout(() => {
-                            el.style.outline = '';
-                            el.style.outlineOffset = '';
-                        }, 2500);
                     } catch (e) {
                         console.warn('Invalid selector', selector);
                     }
@@ -67,6 +61,28 @@ const YourDetails = ({ user }) => {
             });
         });
     };
+
+    const removeHighlight = (selector) => {
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            if (tabs.length === 0) return;
+
+            chrome.scripting.executeScript({
+                target: { tabId: tabs[0].id },
+                func: (selector) => {
+                    try {
+                        const el = document.querySelector(selector);
+                        if (!el) return;
+                        el.style.outline = '';
+                        el.style.outlineOffset = '';
+                    } catch (e) {
+                        console.warn('Invalid selector', selector);
+                    }
+                },
+                args: [selector]
+            });
+        });
+    };
+
 
     return (
         <div className="h-full flex flex-col bg-white overflow-hidden">
@@ -94,7 +110,8 @@ const YourDetails = ({ user }) => {
                             return (
                                 <div key={index} 
                                     className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm flex items-center"
-                                    onMouseEnter={() => highlightFor5Seconds(selector)}
+                                    onMouseEnter={() => highlightFormField(selector)}
+                                    onMouseLeave={() => removeHighlight(selector)}
                                 >
                                     <div className="mr-3 w-3 h-3 accent-blue-600"> {index + 1} </div>
                                     <div className="flex-1">
