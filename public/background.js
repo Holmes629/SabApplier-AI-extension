@@ -297,60 +297,42 @@ chrome.runtime.onInstalled.addListener(() => {
       }
     });
 
-    // Set initial side panel behavior
+    // Set initial side panel behavior to open on click.
     chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true })
-      .then(() => {
-        console.log('Side panel behavior set successfully');
-        // Initialize side panel for all existing tabs
-        return chrome.tabs.query({});
-      })
-      .then((tabs) => {
-        const promises = tabs.map(tab => 
-          chrome.sidePanel.setOptions({
-            tabId: tab.id,
-            path: "index.html",
-            enabled: true
-          })
-        );
-        return Promise.all(promises);
-      })
-      .then(() => console.log('Side panel initialized for all tabs'))
-      .catch(error => console.error('Error during installation:', error));
+      .catch(error => console.error('Error setting side panel behavior:', error));
+
   } catch (error) {
     console.error('Error in onInstalled:', error);
   }
 });
 
 // Handle extension icon click
-chrome.action.onClicked.addListener((tab) => {
+chrome.action.onClicked.addListener(async (tab) => {
   console.log('Extension icon clicked for tab:', tab.id);
   try {
-    chrome.sidePanel.open({ tabId: tab.id })
-      .then(() => {
-        console.log('Side panel opened for tab:', tab.id);
-      })
-      .catch(error => {
-        console.error('Error opening side panel:', error);
-      });
+    // Open side panel for current tab
+    await chrome.sidePanel.open({ tabId: tab.id });
+    console.log('Side panel opened for tab:', tab.id);
+
+    // Get all other tabs and disable the side panel for them
+    const allTabs = await chrome.tabs.query({});
+    const otherTabs = allTabs.filter(t => t.id !== tab.id);
+    await Promise.all(
+      otherTabs.map(t =>
+        chrome.sidePanel.setOptions({
+          tabId: t.id,
+          enabled: false
+        })
+      )
+    );
+    // Re-enable for current tab (in case it was disabled)
+    await chrome.sidePanel.setOptions({
+      tabId: tab.id,
+      path: "index.html",
+      enabled: true
+    });
   } catch (error) {
     console.error('Error in action click handler:', error);
-  }
-});
-
-// Enable side panel for each new tab
-chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  console.log('Tab updated:', tabId, changeInfo.status);
-  if (changeInfo.status === 'complete') {
-    try {
-      chrome.sidePanel.setOptions({
-        tabId,
-        path: "index.html",
-        enabled: true,
-      }).then(() => console.log('Side panel enabled for new tab:', tabId))
-        .catch(error => console.error('Error enabling side panel for new tab:', error));
-    } catch (error) {
-      console.error('Error in onUpdated:', error);
-    }
   }
 });
 
@@ -432,37 +414,29 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
   
   if (message.action === "close_panel") {
-    console.log('Attempting to close side panel');
+    console.log('Attempting to close side panel for all tabs');
     try {
-      // Get the current tab
-      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        if (tabs.length > 0) {
-          const currentTab = tabs[0];
-          
-          // Disable the side panel for the current tab
+      // Get all tabs and disable the side panel for them
+      chrome.tabs.query({}, (tabs) => {
+        const promises = tabs.map(tab => 
           chrome.sidePanel.setOptions({
-            tabId: currentTab.id,
+            tabId: tab.id,
             enabled: false
-          }).then(() => {
-            console.log('Side panel disabled');
-            if (sendResponse) {
-              sendResponse({ success: true });
-            }
-          }).catch(error => {
-            console.error('Error closing side panel:', error);
-            if (sendResponse) {
-              sendResponse({ success: false, error: error.message });
-            }
-          });
-        } else {
-          console.error('No active tab found');
+          })
+        );
+        Promise.all(promises).then(() => {
+          console.log('Side panel disabled for all tabs');
           if (sendResponse) {
-            sendResponse({ success: false, error: 'No active tab found' });
+            sendResponse({ success: true });
           }
-        }
+        }).catch(error => {
+          console.error('Error closing side panel for all tabs:', error);
+          if (sendResponse) {
+            sendResponse({ success: false, error: error.message });
+          }
+        });
       });
-      // Return true to indicate we will send a response asynchronously
-      return true;
+      return true; // We will send a response asynchronously.
     } catch (error) {
       console.error('Error in close_panel handler:', error);
       if (sendResponse) {
