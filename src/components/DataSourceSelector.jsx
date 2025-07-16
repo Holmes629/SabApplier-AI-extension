@@ -125,7 +125,7 @@ const DataSourceSelector = ({ users, currentUser, currentDataSource, onSelect, a
               {/* Lock message if not unlocked */}
               {!isUnlocked && (
                 <div className="mt-2 text-yellow-800 bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm">
-                  <span className="font-bold">🔒 Advanced Feature Locked:</span> Invite 2 friends to unlock this feature. <a href="https://sabapplier.com/profile" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline ml-1">Unlock Now</a>
+                  <span className="font-bold">🔒 Advanced Feature Locked:</span> Invite 2 friends to unlock this feature. <a href="https://sabapplier.com/refer" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline ml-1">Unlock Now</a>
                 </div>
               )}
               {/* Shared Account Options */}
