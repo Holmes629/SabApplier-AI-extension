@@ -355,6 +355,7 @@ export default function Dashboard({ user, onLogout }) {
                   currentUser={user}
                   currentDataSource={currentDataSource}
                   onSelect={handleAccountSelect}
+                  advancedUnlocked={user?.successful_referrals >= 2}
                 />
               </div>
               

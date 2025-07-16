@@ -12,12 +12,15 @@ import { ChevronDown, Database, User } from 'lucide-react';
  * @param {Function} props.onSelect - Callback when a data source is selected
  * @returns {JSX.Element}
  */
-const DataSourceSelector = ({ users, currentUser, currentDataSource, onSelect }) => {
+const DataSourceSelector = ({ users, currentUser, currentDataSource, onSelect, advancedUnlocked }) => {
   const [isOpen, setIsOpen] = useState(false);
   
   console.log('DataSourceSelector received users:', users);
   console.log('DataSourceSelector current user:', currentUser);
   console.log('DataSourceSelector current data source:', currentDataSource);
+  
+  // If advancedUnlocked is not passed, fallback to currentUser?.successful_referrals
+  const isUnlocked = typeof advancedUnlocked === 'boolean' ? advancedUnlocked : (currentUser?.successful_referrals >= 2);
   
   // Filter to find shared accounts (accounts with type='shared' or with shareId)
   const sharedAccounts = users.filter(([email, data]) => {
@@ -95,7 +98,12 @@ const DataSourceSelector = ({ users, currentUser, currentDataSource, onSelect })
                   <span className="ml-auto text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">Current</span>
                 )}
               </div>
-              
+              {/* Lock message if not unlocked */}
+              {!isUnlocked && (
+                <div className="mt-2 text-yellow-800 bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm">
+                  <span className="font-bold">🔒 Advanced Feature Locked:</span> Invite 2 friends to unlock this feature. <a href="https://sabapplier.com/profile" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline ml-1">Unlock Now</a>
+                </div>
+              )}
               {/* Shared Account Options */}
               {(sharedAccounts.length > 0 || users.some(([_, data]) => data.type === 'shared')) && (
                 <div className="border-t border-gray-200 mt-1 pt-1">
@@ -108,10 +116,9 @@ const DataSourceSelector = ({ users, currentUser, currentDataSource, onSelect })
                     .map(([email, data]) => (
                       <div 
                         key={email}
-                        className={`px-4 py-2 flex items-center hover:bg-gray-100 cursor-pointer ${
-                          isUsingSharedAccount && currentDataSource?.email === email ? 'bg-blue-50' : ''
-                        }`}
-                        onClick={() => handleSelect(email, { ...data, type: 'shared' })}
+                        className={`px-4 py-2 flex items-center ${isUnlocked ? 'hover:bg-gray-100 cursor-pointer' : 'opacity-50 cursor-not-allowed'} ${isUsingSharedAccount && currentDataSource?.email === email ? 'bg-blue-50' : ''}`}
+                        onClick={isUnlocked ? () => handleSelect(email, { ...data, type: 'shared' }) : undefined}
+                        title={isUnlocked ? '' : 'Unlock advanced features to use shared data sources'}
                       >
                         <User className="w-4 h-4 text-gray-500 mr-2" />
                         <span className="text-gray-900">{data.name || email.split('@')[0]}'s Data</span>

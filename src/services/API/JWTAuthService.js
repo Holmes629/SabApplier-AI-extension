@@ -6,10 +6,12 @@
  */
 class JWTAuthService {
   constructor() {
-    this.baseURL = 'https://api.sabapplier.com'; // Production backend URL
+    // this.baseURL = 'https://api.sabapplier.com'; // Production backend URL
+    this.baseURL ='http://127.0.0.1:8000/api';
     this.token = null;
     this.userData = null;
   }
+
 
   /**
    * Set the JWT token
@@ -180,6 +182,34 @@ class JWTAuthService {
   clearAuth() {
     this.token = null;
     this.userData = null;
+  }
+
+  /**
+   * Fetch the latest user profile from the backend
+   * @returns {Promise<object>} - User profile data
+   */
+  async getProfile() {
+    if (!this.token || this.isTokenExpired()) {
+      throw new Error('No valid token available');
+    }
+    const url = `${this.baseURL}/users/profile/`;
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${this.token}`
+      }
+    });
+    if (!response.ok) {
+      throw new Error('Failed to fetch profile');
+    }
+    const data = await response.json();
+    if (data && data.user_data) {
+      this.setUserData(data.user_data);
+      // Also update in chrome.storage.local for extension sync
+      chrome.storage.local.set({ user_data: data.user_data });
+    }
+    return data.user_data;
   }
 }
 

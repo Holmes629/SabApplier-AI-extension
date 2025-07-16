@@ -15,6 +15,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import AccountDropdown from './components/AccountDropdown';
 
 import useJWTAuth from './hooks/useJWTAuth';
+import jwtAuthService from './services/API/JWTAuthService';
 
 function AppInner() {
   const [loading, setLoading] = useState(false);
@@ -40,16 +41,7 @@ function AppInner() {
   } = useJWTAuth();
 
   // Construct user object from JWT data
-  const user = userData ? {
-    email: userData.email || userData.user_email || (userData.user && userData.user.email) || (userData.googleData && userData.googleData.email),
-    name: userData.name || userData.user_name || userData.first_name || userData.fullName || 
-          (userData.user && (userData.user.name || userData.user.first_name || userData.user.fullName)) ||
-          (userData.googleData && userData.googleData.name) || 'User',
-    id: userData.id || userData.user_id || (userData.user && userData.user.id),
-    token: token,
-    isJWTAuthenticated: true,
-    originalData: userData
-  } : null;
+  const user = userData && userData.user ? userData.user : null;
 
   // Load saved users from chrome storage
   const loadSavedUsers = useCallback(() => {
@@ -162,15 +154,16 @@ function AppInner() {
 
   // ################### for adaptive learning data checking ###################
   useEffect(() => {
+      if (!user?.successful_referrals || user.successful_referrals < 2) return; // Only run if advanced unlocked
       const intervalId = setInterval(() => {
           chrome.storage.session.get('autoFillDataResult', (data) => {
-              console.log('Retrieved temporary response:', data.autoFillDataResult.fillResults.autoFillData2);
+              if (!data?.autoFillDataResult?.fillResults?.autoFillData2) return;
               checkForModifications(data.autoFillDataResult.fillResults.autoFillData2);
           });
       }, 2000);
 
       return () => clearInterval(intervalId); // cleanup on unmount
-  }, []);
+  }, [user?.successful_referrals]);
 
   const checkForModifications = async (autoFillData) => {
       // Safe query for active tab
@@ -304,6 +297,22 @@ function AppInner() {
     navigate('/data-preview');
   };
 
+  // Add refresh profile logic
+  const handleRefreshProfile = async () => {
+    setLoading(true);
+    setLoadingMessage('Refreshing profile...');
+    try {
+      const latestProfile = await jwtAuthService.getProfile();
+      // Force update of userData in extension
+      window.location.reload(); // Reload to re-trigger auth hook and UI
+    } catch (err) {
+      setError('Failed to refresh profile: ' + (err.message || err));
+    } finally {
+      setLoading(false);
+      setLoadingMessage('Loading SabApplier AI...');
+    }
+  };
+
   // Show loading state while JWT is being checked
   if (jwtLoading || loading) {
     return (
@@ -349,6 +358,16 @@ function AppInner() {
   return (
     <div className="h-screen flex flex-col bg-white overflow-hidden">
       <Header user={user} onLogout={handleLogout} newDataCount={adaptiveLearningData.length} />
+      {/* Refresh Profile Button for advanced features */}
+      <div className="w-full flex justify-end px-4 pt-2">
+        <button
+          onClick={handleRefreshProfile}
+          className="px-4 py-2 bg-blue-500 text-white rounded-lg shadow hover:bg-blue-600 transition-colors text-sm font-semibold"
+          disabled={loading}
+        >
+          {loadingMessage === 'Refreshing profile...' ? 'Refreshing...' : 'Refresh Profile'}
+        </button>
+      </div>
       {/* Main content with responsive padding for header + mobile nav */}
       <main className="flex-1 header-offset px-3 sm:px-4 bg-white overflow-y-auto">
         <div className="max-w-7xl mx-auto h-full">
@@ -367,7 +386,7 @@ function AppInner() {
         </div>
       </main>
       {/* Always mount the popup, it will show itself if there is data */}
-      <AdaptiveLearningPopup user={user} onClose={() => {}} />
+      <AdaptiveLearningPopup user={user} advancedUnlocked={user?.successful_referrals >= 2} onClose={() => {}} />
       <ToastNotification
         message={toastMessage}
         visible={showToast}
