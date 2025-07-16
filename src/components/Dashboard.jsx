@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Rocket, LogOut, PenSquare } from 'lucide-react';
+import { Rocket, LogOut, PenSquare, Gift } from 'lucide-react';
 
 import EmailLogin from '../services/API/EmailLogin';
 import Loader from './Loader';
@@ -54,48 +54,44 @@ export default function Dashboard({ user, onLogout }) {
   // Load saved users from chrome storage and API
   const loadSavedUsers = () => {
     console.log('Attempting to load saved users and shared accounts...');
-    
-    // For debugging - add a mock user if Chrome storage is not available
-    if (!chrome?.storage?.local) {
-      console.log('Chrome storage not available, using mock data');
-      const mockUsers = {
-        'test@example.com': { name: 'Test User' },
-        'demo@example.com': { name: 'Demo User' }
-      };
-      setSavedUsers(Object.entries(mockUsers));
+    if (!user || !user.email) {
+      setSavedUsers([]);
       return;
     }
-    
     // First get local saved users
     chrome.storage.local.get(['sabapplier_users'], (result) => {
       if (chrome.runtime.lastError) {
         console.error('Error loading saved users:', chrome.runtime.lastError);
+        setSavedUsers([]);
         return;
       }
-      
       const users = result.sabapplier_users || {};
-      console.log('Loaded saved users in Dashboard:', users);
-      
-      // Add current user to saved users if not already present
-      if (user && user.email && !users[user.email]) {
-        const updatedUsers = {
-          ...users,
-          [user.email]: { name: user.name || user.email.split('@')[0] }
-        };
-        console.log('Added current user to saved users:', updatedUsers);
-        
-        // Save updated users
-        chrome.storage.local.set({
-          sabapplier_users: updatedUsers
-        }, () => {
-          console.log('Updated saved users with current user');
-          // Now fetch shared accounts
-          fetchSharedAccounts(updatedUsers);
-        });
-      } else {
-        // Fetch shared accounts
-        fetchSharedAccounts(users);
+      // Always add current user
+      if (!users[user.email]) {
+        users[user.email] = { name: user.name || user.email.split('@')[0] };
       }
+      // Fetch shared accounts from API
+      const apiUrl = `http://127.0.0.1:8000/api/users/shared-accounts/?email=${encodeURIComponent(user.email)}`;
+      fetch(apiUrl)
+        .then(response => response.json())
+        .then(data => {
+          console.log('Shared accounts from API:', data);
+          const sharedUsers = {};
+          if (data.accounts && Array.isArray(data.accounts)) {
+            data.accounts.forEach(account => {
+              // Always preserve all fields from the API (including shared_documents)
+              sharedUsers[account.email] = { ...account };
+            });
+          }
+          // Merge local users with shared accounts, shared accounts take precedence
+          const mergedUsers = { ...users, ...sharedUsers };
+          console.log('Merged users for DataSourceSelector (with shared_documents):', mergedUsers);
+          setSavedUsers(Object.entries(mergedUsers));
+        })
+        .catch(error => {
+          console.error('Error fetching shared accounts:', error);
+          setSavedUsers(Object.entries(users));
+        });
     });
   };
   
@@ -304,6 +300,19 @@ export default function Dashboard({ user, onLogout }) {
       }, 5000);
     }
   };
+
+  // Ensure currentDataSource is always set to a valid value
+  useEffect(() => {
+    if (!currentDataSource && user && user.email) {
+      setCurrentDataSource({
+        email: user.email,
+        name: user.name || user.email.split('@')[0],
+        type: 'self',
+        isShared: false,
+        shareId: null
+      });
+    }
+  }, [currentDataSource, user]);
 
   // If there's an error with the component, display a fallback
   if (error) {

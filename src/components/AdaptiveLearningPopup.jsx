@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { saveLearnedFormData } from '../services/API/LearningAPI';
 import { useNavigate } from 'react-router-dom';
+import { Sparkles } from 'lucide-react';
 
 const AdaptiveLearningPopup = ({ user, onClose, advancedUnlocked }) => {
     const [adaptiveData, setAdaptiveData] = useState([]);
@@ -165,6 +166,13 @@ const AdaptiveLearningPopup = ({ user, onClose, advancedUnlocked }) => {
                 <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
                     <p className="text-blue-800 dark:text-blue-200 text-xs text-center">{status}</p>
                 </div>
+            )}
+            {/* Show tip only if not unlocked */}
+            {!isUnlocked && (
+            <div className="mt-4 flex items-center justify-center text-green-700 text-xs font-semibold gap-1 opacity-90">
+                <Sparkles className="w-4 h-4 text-yellow-400" />
+                <span>Tip: You can unlock auto-save & sharing by inviting 2 friends.</span>
+            </div>
             )}
         </div>
     );

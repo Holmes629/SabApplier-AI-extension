@@ -7,6 +7,7 @@ import {
   RefreshCw, 
   Save, 
   Eye,
+  Sparkles,
 } from 'lucide-react';
 
 const DataPreview = ({ user, adaptiveLearningData, newDataCount }) => {
@@ -408,6 +409,13 @@ const DataPreview = ({ user, adaptiveLearningData, newDataCount }) => {
             
             {/* Footer */}
             <Footer />
+            {/* Show tip only if not unlocked */}
+            {(!user?.successful_referrals || user.successful_referrals < 2) && (
+              <div className="mt-4 flex items-center justify-center text-green-700 text-xs font-semibold gap-1 opacity-90">
+                <Sparkles className="w-4 h-4 text-yellow-400" />
+                <span>Tip: You can unlock auto-save & sharing by inviting 2 friends.</span>
+              </div>
+            )}
         </div>
     );
 };

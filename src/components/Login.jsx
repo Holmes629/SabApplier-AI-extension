@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Users } from 'lucide-react';
 import Footer from './Footer';
 
 // const WEBSITE_URL = 'https://sabapplier.com'; // Production URL
