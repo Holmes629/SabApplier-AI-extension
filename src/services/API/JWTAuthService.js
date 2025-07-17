@@ -6,8 +6,8 @@
  */
 class JWTAuthService {
   constructor() {
-    // this.baseURL = 'https://api.sabapplier.com'; // Production backend URL
-    this.baseURL ='http://127.0.0.1:8000/api';
+    this.baseURL = 'https://api.sabapplier.com'; // Production backend URL
+    // this.baseURL ='http://127.0.0.1:8000/api';
     this.token = null;
     this.userData = null;
   }

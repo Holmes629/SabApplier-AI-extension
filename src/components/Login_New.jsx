@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 
-// const WEBSITE_URL = 'https://sabapplier.com'; // Production URL
-const WEBSITE_URL = 'http://localhost:3000'; // Development URL
+const WEBSITE_URL = 'https://sabapplier.com'; // Production URL
+// const WEBSITE_URL = 'http://localhost:3000'; // Development URL
 
 export default function Login({ onLogin }) {
   const [isRedirecting, setIsRedirecting] = useState(false);
