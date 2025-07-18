@@ -1,13 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { saveLearnedFormData } from '../services/API/LearningAPI';
 import { useNavigate } from 'react-router-dom';
+import { Sparkles } from 'lucide-react';
 
-const AdaptiveLearningPopup = ({ user, onClose }) => {
+const AdaptiveLearningPopup = ({ user, onClose, advancedUnlocked }) => {
     const [adaptiveData, setAdaptiveData] = useState([]);
     const [website, setWebsite] = useState(null);
     const [loading, setLoading] = useState(false);
     const [status, setStatus] = useState('');
     const navigate = useNavigate();
+
+    // If advancedUnlocked is not passed, fallback to user?.successful_referrals
+    const isUnlocked = typeof advancedUnlocked === 'boolean' ? advancedUnlocked : (user?.successful_referrals >= 2);
 
     useEffect(() => {
         // Poll for adaptive learning data every 2 seconds
@@ -127,6 +131,19 @@ const AdaptiveLearningPopup = ({ user, onClose }) => {
                     </div>
                 )}
             </div>
+            {/* Lock message if not unlocked */}
+            {!isUnlocked && (
+                <div className="mb-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-yellow-800 text-xs text-center">
+                    <div className="flex items-center justify-center mb-1">
+                        <span className="mr-2">🔒</span>
+                        <span className="font-semibold">Advanced Feature Locked</span>
+                    </div>
+                    <div>
+                        Unlock this feature by inviting 2 friends.<br />
+                        <a href="https://sabapplier.com/profile" target="_blank" rel="noopener noreferrer" className="underline text-blue-700">Go to Profile to Unlock</a>
+                    </div>
+                </div>
+            )}
             {/* Action Buttons */}
             <div className="flex gap-2">
                 <button
@@ -138,7 +155,7 @@ const AdaptiveLearningPopup = ({ user, onClose }) => {
                 </button>
                 <button
                     onClick={handleSaveChanges}
-                    disabled={loading}
+                    disabled={loading || !isUnlocked}
                     className="flex-1 px-3 py-2 text-xs bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-lg transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     {loading ? 'Saving...' : 'Save & Preview'}
@@ -149,6 +166,13 @@ const AdaptiveLearningPopup = ({ user, onClose }) => {
                 <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
                     <p className="text-blue-800 dark:text-blue-200 text-xs text-center">{status}</p>
                 </div>
+            )}
+            {/* Show tip only if not unlocked */}
+            {!isUnlocked && (
+            <div className="mt-4 flex items-center justify-center text-green-700 text-xs font-semibold gap-1 opacity-90">
+                <Sparkles className="w-4 h-4 text-yellow-400" />
+                <span>Tip: You can unlock auto-save & sharing by inviting 2 friends.</span>
+            </div>
             )}
         </div>
     );

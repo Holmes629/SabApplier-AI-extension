@@ -7,6 +7,7 @@ import {
   RefreshCw, 
   Save, 
   Eye,
+  Sparkles,
 } from 'lucide-react';
 
 const DataPreview = ({ user, adaptiveLearningData, newDataCount }) => {
@@ -293,6 +294,22 @@ const DataPreview = ({ user, adaptiveLearningData, newDataCount }) => {
         )
     );
 
+    // Advanced feature lock
+    if (!user?.successful_referrals || user.successful_referrals < 2) {
+        return (
+            <div className="min-h-screen flex flex-col items-center justify-center bg-white p-8">
+                <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-8 max-w-md text-center">
+                    <div className="text-5xl mb-4">🔒</div>
+                    <h2 className="text-2xl font-bold text-yellow-900 mb-2">Advanced Feature Locked</h2>
+                    <p className="text-yellow-800 mb-4">
+                        The Data Preview page is an advanced feature. Invite 2 friends to unlock it!
+                    </p>
+                    <a href="https://sabapplier.com/profile" target="_blank" rel="noopener noreferrer" className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold transition-colors">Unlock Now</a>
+                </div>
+            </div>
+        );
+    }
+
     if (loading) {
         return (
             <div className="h-full flex flex-col bg-white overflow-hidden">
@@ -441,6 +458,13 @@ const DataPreview = ({ user, adaptiveLearningData, newDataCount }) => {
             
             {/* Footer */}
             <Footer />
+            {/* Show tip only if not unlocked */}
+            {(!user?.successful_referrals || user.successful_referrals < 2) && (
+              <div className="mt-4 flex items-center justify-center text-green-700 text-xs font-semibold gap-1 opacity-90">
+                <Sparkles className="w-4 h-4 text-yellow-400" />
+                <span>Tip: You can unlock auto-save & sharing by inviting 2 friends.</span>
+              </div>
+            )}
         </div>
     );
 };

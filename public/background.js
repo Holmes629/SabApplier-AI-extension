@@ -166,9 +166,7 @@ setInterval(async () => {
         'https://*.sabapplier.com/*'
       ]
     });
-    
     if (tabs.length > 0) {
-      // Check for JWT token in the active website tab
       for (const tab of tabs) {
         try {
           const results = await chrome.scripting.executeScript({
@@ -194,29 +192,15 @@ setInterval(async () => {
               };
             }
           });
-          
           if (results && results[0] && results[0].result) {
             const data = results[0].result;
             const token = data.jwt_token || data.sabapplier_extension_jwt;
             const userData = data.sabapplier_user_data || data.sabapplier_extension_user;
-            
-            // Check for logout conditions
-            const shouldLogout = data.logout_flag === 'true' || 
-                                (data.token_missing && data.current_user_missing) ||
-                                data.is_authenticated === 'false';
-                                
+            // Only clear token if explicit logout flag is set
+            const shouldLogout = data.logout_flag === 'true';
             if (shouldLogout && jwtAuth.isAuthenticated) {
-              console.log('🔄 Logout detected in website, clearing extension auth...');
-              console.log('🔄 Logout indicators:', {
-                logout_flag: data.logout_flag,
-                token_missing: data.token_missing,
-                current_user_missing: data.current_user_missing,
-                is_authenticated: data.is_authenticated,
-                extension_authenticated: jwtAuth.isAuthenticated
-              });
-              
+              console.log('🔄 Logout detected in website, clearing extension auth (explicit logout flag).');
               await jwtAuth.handleLogoutFromWebsite();
-              
               // Clear the logout flag to prevent repeated processing
               if (data.logout_flag === 'true') {
                 try {
@@ -233,17 +217,13 @@ setInterval(async () => {
                 }
               }
             }
-            // Check for login/token update
+            // Only update token if new and not already set
             else if (token && token !== jwtAuth.token) {
               console.log('🔄 Found JWT token in website localStorage, syncing...');
-              console.log('🔄 Token source:', data.jwt_token ? 'jwt_token' : 'sabapplier_extension_jwt');
-              console.log('🔄 Window flags:', data.windowFlags);
-              
               await jwtAuth.handleTokenFromWebsite(token, userData ? JSON.parse(userData) : null);
             }
           }
         } catch (error) {
-          // Ignore errors for tabs that don't have the right permissions
           if (!error.message.includes('Cannot access')) {
             console.error('Error checking tab for JWT token:', error);
           }

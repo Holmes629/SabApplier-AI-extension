@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Users } from 'lucide-react';
 import Footer from './Footer';
 
 const WEBSITE_URL = 'https://sabapplier.com'; // Production URL
+// const WEBSITE_URL = 'http://localhost:3000'; // Development URL
 
 export default function Login({ onLogin }) {
   const [isRedirecting, setIsRedirecting] = useState(false);

@@ -30,7 +30,7 @@ const DashboardFallback = ({ user, onLogout }) => {
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-md">
         <button
-          onClick={() => chrome.tabs.create({ url: 'http://localhost:3000/dashboard' })}
+          onClick={() => chrome.tabs.create({ url: 'https://sabapplier.com/dashboard' })}
           className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-colors"
         >
           Open Dashboard
