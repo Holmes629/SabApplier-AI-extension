@@ -154,7 +154,7 @@ function AppInner() {
 
   // ################### for adaptive learning data checking ###################
   useEffect(() => {
-      if (!user?.successful_referrals || user.successful_referrals < 2) return; // Only run if advanced unlocked
+      // if (!user?.successful_referrals || user.successful_referrals < 2) return; // Only run if advanced unlocked
       const intervalId = setInterval(() => {
           chrome.storage.session.get('autoFillDataResult', (data) => {
               if (!data?.autoFillDataResult?.fillResults?.autoFillData2) return;
@@ -166,17 +166,17 @@ function AppInner() {
   }, [user?.successful_referrals]);
 
   const checkForModifications = async (autoFillData) => {
-      // Safe query for active tab
       let tab;
+
       try {
           const tabs = await chrome.tabs.query({
-          active: true,
-          currentWindow: true,
+              active: true,
+              currentWindow: true,
           });
 
           if (!tabs || tabs.length === 0) {
-          onStatusUpdate("⚠️ No active tab found. Please refresh and try again.", "error");
-          return { error: "No active tab found" };
+              onStatusUpdate("⚠️ No active tab found. Please refresh and try again.", "error");
+              return { error: "No active tab found" };
           }
 
           tab = tabs[0];
@@ -188,64 +188,101 @@ function AppInner() {
 
       try {
           const [result] = await chrome.scripting.executeScript({
-          target: { tabId: tab.id },
-          func: (autoFillData) => {
-              const allInputs = [];
-              const list = document.querySelectorAll("input, textarea, select, label");
+              target: { tabId: tab.id },
+              func: (autoFillData) => {
+                  const allInputs = [];
+                  const list = document.querySelectorAll("input, textarea, select, label");
 
-              for (const input of list) {
-              try {
-                  const name = input?.name;
-                  const labelText = document.querySelector(`label[for="${input.id}"]`)?.innerText || input.placeholder || '';
-                  const value = input?.value;
-                  const type = input?.type;
+                  for (const input of list) {
+                      try {
+                          const name = input?.name;
+                          const labelText = document.querySelector(`label[for="${input.id}"]`)?.innerText || input.placeholder || '';
+                          const value = input?.value;
+                          const type = input?.type;
 
-                  // ❌ Skip hidden and buttons
-                  if (
-                      !name ||
-                      !value ||
-                      value === '' ||
-                      type === 'hidden' ||
-                      type === 'button' ||
-                      type === 'submit' ||
-                      type === 'reset'
-                  ) {
-                      continue;
+                          if (
+                              !name ||
+                              !value ||
+                              value === '' ||
+                              type === 'hidden' ||
+                              type === 'button' ||
+                              type === 'submit' ||
+                              type === 'reset'
+                          ) {
+                              continue;
+                          }
+
+                          // 🟡 Handle <select> field with non-default option
+                          if (input.tagName.toLowerCase() === 'select') {
+                              const selectedIndex = input.selectedIndex;
+                              const selectedOption = input.options[selectedIndex];
+                              const selectedText = selectedOption?.innerHTML?.trim();
+                              const storedValue = autoFillData?.[name];
+
+                              const isDefaultOption = (selectedIndex === 0);
+                              if (selectedText && input.value !== storedValue) {
+                                  allInputs.push({
+                                      name: name,
+                                      value: selectedText,
+                                      type: 'select'
+                                  });
+                              }
+                          }
+                          else if (input.type === 'radio') {
+                              // 🟢 Handle <label> field with text content
+                              const isChecked = input.checked;
+                              if (isChecked && value !== autoFillData?.[name]) {
+                                  allInputs.push({
+                                      name: name,
+                                      value: input.innerHTML || labelText || 'Checked',
+                                      type: 'radio'
+                                  });
+                              } 
+                          } 
+                          else if (input.type === 'checkbox') {
+                              const isChecked = input.checked;
+                              if (isChecked && !(input.value === autoFillData?.[name] || autoFillData?.[name].toLowerCase() == 'checked' ) ) {
+                                  allInputs.push({
+                                      name: name,
+                                      value: input.innerHTML || labelText || 'Checked',
+                                      type: 'checkbox'
+                                  });
+                              } 
+                          }
+                          // 🔵 Handle standard inputs (non-file)
+                          else if (type !== 'file') {
+                              if (value && value !== autoFillData?.[name]) {
+                                  allInputs.push({
+                                      name: name,
+                                      value: value
+                                  });
+                              }
+                          }
+                          // 🟠 Handle file input
+                          else if (
+                              type === 'file' &&
+                              input.files &&
+                              input.files.length > 0
+                          ) {
+                              const file = input.files[0];
+                              if (file.name !== autoFillData?.[name]?.name) {
+                                  allInputs.push({
+                                      name: name,
+                                      value: `${file.name}, new file detected, if you want us to save it please upload it in our website`,
+                                      type: 'file'
+                                  });
+                              }
+                          }
+                      } catch (err) {
+                          console.warn("Skipping input due to error:", input, err);
+                      }
                   }
 
-                  console.log('data preview: ', name, value, type, autoFillData?.[name], Object.keys(autoFillData || {}), Object.keys(autoFillData || {})[0], typeof name, typeof Object.keys(autoFillData || {})[0]);
-                  if (type !== 'file') {
-                  if (value && value !== '' && value !== autoFillData?.[name]) {
-                      allInputs.push({
-                      name: name,
-                      value: value
-                      });
-                  }
-                  } else if (
-                  type === 'file' &&
-                  input.files &&
-                  input.files.length > 0
-                  ) {
-                  const file = input.files[0];
-                  if (file.name !== autoFillData?.[name]?.name) {
-                      allInputs.push({
-                      name: name,
-                      value: file.name,
-                      type: 'file'
-                      });
-                  }
-                  }
-              } catch (err) {
-                  console.warn(`Skipping input due to error:`, input, err);
-              }
-              }
-
-              return allInputs;
-          },
-          args: [autoFillData]
+                  return allInputs;
+              },
+              args: [autoFillData]
           });
 
-          // ✅ Safely update state in React context
           try {
               const modifiedInputs = result.result;
               setAdaptiveLearningData(modifiedInputs);
@@ -260,6 +297,8 @@ function AppInner() {
           onStatusUpdate("⚠️ Script execution failed", "error");
       }
   };
+
+
   // --------------------- end of adaptive learning data checking ---------------------
 
   const handleLogout = async () => {
@@ -379,7 +418,7 @@ function AppInner() {
                 </ErrorBoundary>
               } />
               <Route path="/your-details" element={<MissedFields user={user} />} />
-              <Route path="/data-preview" element={<DataPreview user={user} adaptiveLearningData={adaptiveLearningData} />} />
+              <Route path="/data-preview" element={<DataPreview user={user} adaptiveLearningData={adaptiveLearningData} newDataCount={adaptiveLearningData.length} />} />
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
             </Routes>
           </ErrorBoundary>

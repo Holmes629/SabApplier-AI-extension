@@ -26,8 +26,8 @@ const DataSourceSelector = ({ users, currentUser, currentDataSource, onSelect, a
   console.log('DataSourceSelector current data source:', currentDataSource);
   
   // If advancedUnlocked is not passed, fallback to currentUser?.successful_referrals
-  const isUnlocked = typeof advancedUnlocked === 'boolean' ? advancedUnlocked : (currentUser?.successful_referrals >= 2);
-  
+  // const isUnlocked = typeof advancedUnlocked === 'boolean' ? advancedUnlocked : (currentUser?.successful_referrals >= 2);
+  const isUnlocked = true;
   // Filter to find shared accounts (accounts with type='shared' or with shareId)
   const sharedAccounts = users.filter(([email, data]) => {
     // Check if this is a shared account (not the current user's account)

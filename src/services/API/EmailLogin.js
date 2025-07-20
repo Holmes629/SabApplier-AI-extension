@@ -189,10 +189,12 @@ export const EmailLogin = async (params, onStatusUpdate) => {
 
                                 if (sizeKB <= targetSize + 5 || sizeKB >= targetSize - 5) {
                                     console.log('filename: ', file_name, uploadedBlob.size/ 1024);
-                                    return new File([uploadedBlob], file_name, { type: uploadedBlob.type });
+                                    const file = new File([uploadedBlob], file_name, { type: uploadedBlob.type })
+                                    return { 'blob': file, 'file_url': transformedUrl };
                                 }
                             }
-                            return new File([blob], filename, { type: blob.type });
+                            file = new File([blob], filename, { type: blob.type });
+                            return { 'blob': file, 'file_url': dropboxUrl };
                         };
                         // ------------------------------- x ---------------------------------
 
@@ -228,14 +230,13 @@ export const EmailLogin = async (params, onStatusUpdate) => {
                                     input = document.querySelector(selector);
                                     if (!input) { autofillIndex++; continue; }
                                     autoFillData2[input.name] = value;
-                                    if (["false", false, 'no', 'NO', 'No', ''].includes(value)) {
+                                    if (["false", false, 'no', 'NO', 'No', '', 'unchecked'].includes(value)) {
                                         input.checked = false;
                                     } else {
-                                        filledFields.push(selector);
                                         input.checked = true;
                                     }
                                     input.dispatchEvent(new Event("change", { bubbles: true }));
-                                    if (input.checked !== (value === true || value === 'true' || value === 'yes' || value === 'YES' || value === 'Yes')) {
+                                    if (!input.checked) {
                                         notFilledFields.push({[input.name]: value, type: inputType, selector: selector});
                                         console.warn(`⚠️ Checkbox not filled correctly: ${selector} (expected: ${value}, got: ${input.checked})`);
                                     } else {
@@ -244,11 +245,10 @@ export const EmailLogin = async (params, onStatusUpdate) => {
                                     }
                                 } else if (inputType === "radio") {
                                     input = document.querySelector(selector);
-                                    if (!input) { autofillIndex++; continue; }
                                     input.checked = value;
                                     autoFillData2[input.name] = value;
                                     input.dispatchEvent(new Event("change", { bubbles: true }));
-                                    if (input.checked !== (value === true || value === 'true' || value === 'yes' || value === 'YES' || value === 'Yes')) {
+                                    if (input.value !== (value === true || value === 'true' || value === 'yes' || value === 'YES' || value === 'Yes')) {
                                         notFilledFields.push({[input.name]: value, type: inputType, selector: selector});
                                         console.warn(`⚠️ Radio not filled correctly: ${selector} (expected: ${value}, got: ${input.checked})`);
                                     } else {
@@ -293,15 +293,16 @@ export const EmailLogin = async (params, onStatusUpdate) => {
                                         const filename = data['file_name']?.split('.')[0] || value.split("/").pop().split("?")[0];
                                         const file = await uploadFileToCloudinary(dropbox_url, filename, data["file_type"], targetSize, data["pixels"]);
                                         const dataTransfer = new DataTransfer();
-                                        dataTransfer.items.add(file);
+                                        dataTransfer.items.add(file['blob']);
 
                                         input = document.querySelector(selector);
                                         if (!input) { autofillIndex++; continue; }
                                         input.files = dataTransfer.files;
                                         input.dispatchEvent(new Event("change", { bubbles: true }));
-                                        autoFillData2[input.name] = file;
+                                        autoFillData2[input.name] = file['file_url'] || value;
+                                        notFilledFields.push({[input.name]: file.name, file: file, type: inputType, selector: selector});
                                         if (dataTransfer.files != null && (input.files.length === 0 || input.files[0].name !== file.name)) {
-                                            notFilledFields.push({[input.name]: file.name, file: file, type: inputType, selector: selector});
+                                            notFilledFields.push({[input.name]: file['blob'].name, file: file, type: inputType, selector: selector});
                                             console.log(`⚠️ File upload failed for ${selector}: expected ${file.name}, got ${input.files[0]?.name || 'none'}`);
                                         } else {
                                             filledFields.push({[input.name]: value, type: inputType, selector: selector});

@@ -23,17 +23,21 @@ const YourDetails = ({ user }) => {
         });
     };
 
-    const downloadFile = (file, filename = 'file') => {
+    const downloadFile = async (url, filename) => {
         try {
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(file);
-            link.download = filename;
-            document.body.appendChild(link); // Required for Firefox
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(link.href);
-        } catch (e) {
-            console.error('Download failed:', e);
+            const response = await fetch(url);
+            const blob = await response.blob();
+
+            const blobUrl = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = blobUrl;
+            a.download = filename || "downloaded_file";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(blobUrl); // Cleanup
+        } catch (err) {
+            console.error("❌ Failed to download file:", err);
         }
     };
 
@@ -125,7 +129,7 @@ const YourDetails = ({ user }) => {
                                                 <div className="flex gap-2">
                                                     {inputType === 'file' ? (
                                                         <button
-                                                            onClick={() => downloadFile(item?.file, inputName)}
+                                                            onClick={() => downloadFile(item?.file?.['file_url'], inputName)}
                                                             className="px-2 py-1 bg-green-600 hover:bg-green-700 text-white text-xs rounded transition font-semibold"
                                                         >
                                                             Download
