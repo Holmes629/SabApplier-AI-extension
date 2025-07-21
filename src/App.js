@@ -63,7 +63,12 @@ function AppInner() {
   }, [refreshAuth]);
 
   // Construct user object from JWT data
-  const user = userData && (userData.email || userData.name) ? userData : null;
+  const user =
+    userData && (userData.email || userData.name)
+      ? userData
+      : userData && userData.user && (userData.user.email || userData.user.name)
+      ? userData.user
+      : null;
 
   // Load saved users from chrome storage
   const loadSavedUsers = useCallback(() => {
