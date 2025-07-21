@@ -222,7 +222,7 @@ window.addEventListener('message', function(event) {
 
 // Listen for custom events from the website
 window.addEventListener('sabapplier_jwt_login', function(event) {
-  console.log('🔄 SabApplier Extension: Custom JWT login event received:', event.detail);
+  console.log('[EXT] sabapplier_jwt_login event received:', event.detail);
   
   // Check if extension context is still valid
   if (!chrome?.runtime?.id) {
@@ -320,7 +320,7 @@ setTimeout(checkExistingTokens, 1000);
 const originalSetItem = localStorage.setItem;
 localStorage.setItem = function(key, value) {
   if (key.includes('jwt_token') || key.includes('sabapplier_jwt_token')) {
-    console.log('SabApplier Extension: JWT token updated in localStorage');
+    console.log('[EXT] localStorage.setItem detected for JWT:', { key, value });
     
     // Get user data if available
     const userData = localStorage.getItem('sabapplier_user_data') || localStorage.getItem('user_data');
