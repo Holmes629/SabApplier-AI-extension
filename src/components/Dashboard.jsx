@@ -399,6 +399,13 @@ export default function Dashboard({ user, onLogout }) {
                   )}
                 </button>
               </div>
+                  
+              {/* Disclaimer */}
+              <div className="max-w-3xl mx-auto px-4 py-4 text-center text-xs text-gray-500">
+                <p>
+                  <b>Disclaimer</b>: AI can make mistakes, please verify all information before submitting.
+                </p>
+              </div>
             </div>
           </div>
         </div>
