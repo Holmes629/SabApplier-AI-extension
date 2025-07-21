@@ -40,8 +40,30 @@ function AppInner() {
     logout 
   } = useJWTAuth();
 
+  // Always refresh auth state on mount
+  useEffect(() => {
+    refreshAuth();
+  }, [refreshAuth]);
+
+  // Listen for AUTH_STATE_CHANGED messages from background script
+  useEffect(() => {
+    const handler = (msg) => {
+      if (msg.action === 'AUTH_STATE_CHANGED') {
+        refreshAuth();
+      }
+    };
+    if (chrome?.runtime?.onMessage) {
+      chrome.runtime.onMessage.addListener(handler);
+    }
+    return () => {
+      if (chrome?.runtime?.onMessage) {
+        chrome.runtime.onMessage.removeListener(handler);
+      }
+    };
+  }, [refreshAuth]);
+
   // Construct user object from JWT data
-  const user = userData && userData.user ? userData.user : null;
+  const user = userData && (userData.email || userData.name) ? userData : null;
 
   // Load saved users from chrome storage
   const loadSavedUsers = useCallback(() => {

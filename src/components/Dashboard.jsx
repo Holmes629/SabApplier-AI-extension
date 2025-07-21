@@ -71,7 +71,7 @@ export default function Dashboard({ user, onLogout }) {
         users[user.email] = { name: user.name || user.email.split('@')[0] };
       }
       // Fetch shared accounts from API
-      const apiUrl = `http://127.0.0.1:8000/api/users/shared-accounts/?email=${encodeURIComponent(user.email)}`;
+      const apiUrl = `https://api.sabapplier.com/api/users/shared-accounts/?email=${encodeURIComponent(user.email)}`;
       fetch(apiUrl)
         .then(response => response.json())
         .then(data => {
