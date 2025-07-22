@@ -139,8 +139,9 @@ export const EmailLogin = async (params, onStatusUpdate) => {
                         // cloudinary function for documents compression or expansion, and resizing.
                         const uploadFileToCloudinary = async (dropboxUrl, filename, file_type, targetSize, pixels) => {
                             const cloudinaryUrl = "https://api.cloudinary.com/v1_1/detvvagxg/auto/upload";
-                            const uploadPreset = "unsigned_preset_for_extension"; // Replace with your actual preset
+                            const uploadPreset = "unsigned_preset_for_extension";
 
+                            // Step 1: Fetch file from Dropbox
                             const response = await fetch(dropboxUrl);
                             const blob = await response.blob();
 
@@ -148,6 +149,7 @@ export const EmailLogin = async (params, onStatusUpdate) => {
                             formData.append("file", blob);
                             formData.append("upload_preset", uploadPreset);
 
+                            // Step 2: Upload to Cloudinary
                             const cloudRes = await fetch(cloudinaryUrl, {
                                 method: "POST",
                                 body: formData,
@@ -157,45 +159,74 @@ export const EmailLogin = async (params, onStatusUpdate) => {
 
                             const data = await cloudRes.json();
 
-                            // Build transformed URL
+                            // Step 3: Normalize file_type
                             try {
                                 const allowedTypes = ['jpg', 'jpeg', 'png', 'pdf'];
                                 file_type = file_type.split(',')[0].trim().toLowerCase().replace('.', '');
-                                if (!allowedTypes.includes(file_type)) {
-                                    file_type = 'jpg'; // default will be jpg
-                                }
+                                if (!allowedTypes.includes(file_type)) file_type = 'jpg';
                             } catch (err) {
                                 console.log('error with file_type: ', err);
                                 file_type = 'jpg';
                             }
-                            let pixels_w = 600; let pixels_h = 800;
+
+                            // Step 4: Parse pixels
+                            let pixels_w = 600, pixels_h = 800;
                             try {
                                 [pixels_w, pixels_h] = pixels.toLowerCase().replace(/[^0-9x]/g, '').split('x').map(Number);
                             } catch (err) {
-                                console.log('error occured with pixels: ', err);
-                                pixels_w = 600; pixels_h = 800;
+                                console.log('error with pixels: ', err);
                             }
+
                             console.log('filename, file_type, size, pixels:', filename, file_type, pixels_w, pixels_h);
-                            
+
                             const publicId = data.public_id;
-                            for (let quality = 100; quality >= 1; quality -= 1) {
+
+                            // Step 5: Fetch transformed image with full quality first
+                            const transformedUrlQ100 = `https://res.cloudinary.com/detvvagxg/image/upload/f_${file_type},w_${pixels_w},h_${pixels_h},q_100,c_fill,g_auto/${publicId}`;
+                            let fullQualityBlob = await fetch(transformedUrlQ100).then(res => res.blob());
+                            const file_name = `${filename || data.original_filename}.${file_type}`;
+                            const sizeKB = fullQualityBlob.size / 1024;
+
+                            // Step 6: If already too small, pad it BEFORE compression
+                            if (sizeKB < targetSize) {
+                                console.log(`File size (${sizeKB.toFixed(2)} KB) too small. Padding...`);
+
+                                const originalBuffer = await fullQualityBlob.arrayBuffer();
+                                const originalBytes = new Uint8Array(originalBuffer);
+                                const bytesToAdd = Math.floor((targetSize - sizeKB) * 1024);
+                                const padding = new Uint8Array(bytesToAdd).fill(0);
+
+                                const combined = new Uint8Array(originalBytes.length + padding.length);
+                                combined.set(originalBytes);
+                                combined.set(padding, originalBytes.length);
+
+                                const paddedBlob = new Blob([combined], { type: fullQualityBlob.type });
+                                const paddedFile = new File([paddedBlob], file_name, { type: fullQualityBlob.type });
+
+                                console.log(`Padded file size: ${(paddedBlob.size / 1024).toFixed(2)} KB`);
+                                return { blob: paddedFile, file_url: transformedUrlQ100 };
+                            }
+
+                            // Step 7: Compression loop — reduce size only if needed
+                            for (let quality = 100; quality >= 1; quality--) {
                                 const transformedUrl = `https://res.cloudinary.com/detvvagxg/image/upload/f_${file_type},w_${pixels_w},h_${pixels_h},q_${quality},c_fill,g_auto/${publicId}`;
-                                
                                 const uploadedBlob = await fetch(transformedUrl).then(res => res.blob());
-                                const file_name = `${ filename || data.original_filename }.${file_type}`;
-                                const sizeKB = uploadedBlob.size / 1024;
+                                const currentSizeKB = uploadedBlob.size / 1024;
 
-                                console.log(`Quality ${quality}: ${sizeKB.toFixed(2)} KB`);
+                                console.log(`Quality ${quality}: ${currentSizeKB.toFixed(2)} KB`);
 
-                                if ((targetSize - 5 <=sizeKB && sizeKB <= targetSize + 5) || targetSize > sizeKB) {
-                                    console.log('filename: ', file_name, uploadedBlob.size/ 1024);
-                                    const file = new File([uploadedBlob], file_name, { type: uploadedBlob.type })
-                                    return { 'blob': file, 'file_url': transformedUrl };
+                                if ((targetSize - 5 <= currentSizeKB && currentSizeKB <= targetSize + 5) || targetSize > currentSizeKB) {
+                                    const finalFile = new File([uploadedBlob], file_name, { type: uploadedBlob.type });
+                                    console.log('Returning file within target range:', file_name, currentSizeKB.toFixed(2), 'KB');
+                                    return { blob: finalFile, file_url: transformedUrl };
                                 }
                             }
-                            file = new File([blob], filename, { type: blob.type });
-                            return { 'blob': file, 'file_url': dropboxUrl };
+
+                            // Step 8: Fallback — return original
+                            const fallbackFile = new File([blob], filename, { type: blob.type });
+                            return { blob: fallbackFile, file_url: dropboxUrl };
                         };
+
 
                         // ------------------------------- x ---------------------------------
 
