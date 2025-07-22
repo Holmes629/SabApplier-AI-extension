@@ -362,7 +362,7 @@ const DataPreview = ({ user, adaptiveLearningData, newDataCount }) => {
                 </div>
 
                 {/* Select All Checkbox */}
-                <div className="flex items-center mb-3">
+                {/* <div className="flex items-center mb-3">
                     <input  
                         type="checkbox"
                         checked={selectAll}
@@ -373,7 +373,7 @@ const DataPreview = ({ user, adaptiveLearningData, newDataCount }) => {
                     <label htmlFor="select-all-checkbox" className="text-xs font-medium text-gray-700">
                         Select All ({selectedIndexes.length}/{newDataCount || adaptiveLearningData.length})
                     </label>
-                </div>
+                </div> */}
 
                 {/* Data List */}
                 <div className="space-y-2 mb-4">

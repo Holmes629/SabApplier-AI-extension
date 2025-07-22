@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Sabapplier AI - Smart Form Filler & Document Manager",
-  "version": "2.5.0",
+  "version": "2.5.1",
   "description": "AI-powered extension to fill complex forms, manage documents, and auto-edit photos for exam and official applications",
 
   "permissions": [
