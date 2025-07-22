@@ -111,6 +111,7 @@ const YourDetails = ({ user }) => {
                             const inputType = item["type"];
                             const selector = item["selector"];
                             const value = item[inputName];
+                            if (!value && !item?.file) return null; // Skip if no value and no file
                             return (
                                 <div key={index} 
                                     className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm flex items-center"

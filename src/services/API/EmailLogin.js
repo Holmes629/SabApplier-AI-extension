@@ -178,7 +178,7 @@ export const EmailLogin = async (params, onStatusUpdate) => {
                             console.log('filename, file_type, size, pixels:', filename, file_type, pixels_w, pixels_h);
                             
                             const publicId = data.public_id;
-                            for (let quality = 100; quality >= 20; quality -= 5) {
+                            for (let quality = 100; quality >= 1; quality -= 1) {
                                 const transformedUrl = `https://res.cloudinary.com/detvvagxg/image/upload/f_${file_type},w_${pixels_w},h_${pixels_h},q_${quality},c_fill,g_auto/${publicId}`;
                                 
                                 const uploadedBlob = await fetch(transformedUrl).then(res => res.blob());
@@ -187,7 +187,7 @@ export const EmailLogin = async (params, onStatusUpdate) => {
 
                                 console.log(`Quality ${quality}: ${sizeKB.toFixed(2)} KB`);
 
-                                if (sizeKB <= targetSize + 5 || sizeKB >= targetSize - 5) {
+                                if ((targetSize - 5 <=sizeKB && sizeKB <= targetSize + 5) || targetSize > sizeKB) {
                                     console.log('filename: ', file_name, uploadedBlob.size/ 1024);
                                     const file = new File([uploadedBlob], file_name, { type: uploadedBlob.type })
                                     return { 'blob': file, 'file_url': transformedUrl };
@@ -196,6 +196,7 @@ export const EmailLogin = async (params, onStatusUpdate) => {
                             file = new File([blob], filename, { type: blob.type });
                             return { 'blob': file, 'file_url': dropboxUrl };
                         };
+
                         // ------------------------------- x ---------------------------------
 
                         // Apply autofill data to form fields
@@ -300,8 +301,7 @@ export const EmailLogin = async (params, onStatusUpdate) => {
                                         input.files = dataTransfer.files;
                                         input.dispatchEvent(new Event("change", { bubbles: true }));
                                         autoFillData2[input.name] = file['file_url'] || value;
-                                        notFilledFields.push({[input.name]: file.name, file: file, type: inputType, selector: selector});
-                                        if (dataTransfer.files != null && (input.files.length === 0 || input.files[0].name !== file.name)) {
+                                        if (dataTransfer.files != null && (input.files.length === 0 || input.files[0].name !== file['blob'].name)) {
                                             notFilledFields.push({[input.name]: file['blob'].name, file: file, type: inputType, selector: selector});
                                             console.log(`⚠️ File upload failed for ${selector}: expected ${file.name}, got ${input.files[0]?.name || 'none'}`);
                                         } else {
