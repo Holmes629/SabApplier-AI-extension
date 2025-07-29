@@ -247,7 +247,7 @@ export const EmailLogin = async (params, onStatusUpdate) => {
                             try {
                                 if (["input", "textarea", "select"].includes(inputType)) {
                                     input = document.querySelector(selector);
-                                    if (!input) { autofillIndex++; continue; }
+                                    if (!input || input.type == 'hidden') { autofillIndex++; continue; }
                                     input.value = String(value);
                                     input.dispatchEvent(new Event("input", { bubbles: true }));
                                     autoFillData2[input.name] = value;
@@ -260,7 +260,7 @@ export const EmailLogin = async (params, onStatusUpdate) => {
                                     }
                                 } else if (inputType === "checkbox") {
                                     input = document.querySelector(selector);
-                                    if (!input) { autofillIndex++; continue; }
+                                    if (!input || input.type == 'hidden') { autofillIndex++; continue; }
                                     autoFillData2[input.name] = value;
                                     if (["false", false, 'no', 'NO', 'No', '', 'unchecked'].includes(value)) {
                                         input.checked = false;
@@ -277,6 +277,7 @@ export const EmailLogin = async (params, onStatusUpdate) => {
                                     }
                                 } else if (inputType === "radio") {
                                     input = document.querySelector(selector);
+                                    if (!input || input.type == 'hidden') { autofillIndex++; continue; }
                                     input.checked = value;
                                     autoFillData2[input.name] = value;
                                     input.dispatchEvent(new Event("change", { bubbles: true }));
@@ -289,7 +290,7 @@ export const EmailLogin = async (params, onStatusUpdate) => {
                                     }
                                 } else if (inputType === "label") {
                                     input = document.querySelector(selector);
-                                    if (!input) { autofillIndex++; continue; }
+                                    if (!input || input.type == 'hidden') { autofillIndex++; continue; }
                                     input.click();
                                     autoFillData2[input.name] = value;
                                     input.dispatchEvent(new Event("change", { bubbles: true }));
